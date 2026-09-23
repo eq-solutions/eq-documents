@@ -31,7 +31,7 @@
     "@eq-solutions/contracts": ">=0.2.0"
   },
   "devDependencies": {
-    "@eq-solutions/contracts": "github:eq-solutions/eq-contracts#claude/brand-kit-contract",
+    "@eq-solutions/contracts": "github:eq-solutions/eq-contracts#v0.2.0",
     "@types/node": "^22",
     "esbuild": "^0.24.0",
     "typescript": "^5"
