@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Typecheck, build, dist-drift, test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Committed dist/ must match a fresh build (eq-design-tokens rule)
+        run: |
+          if [[ -n "$(git status --porcelain dist/)" ]]; then
+            echo "::error::dist/ does not match source. Run 'npm run build' and commit the result."
+            git status --porcelain dist/
+            exit 1
+          fi
+      - run: npm test
+      - name: IIFE size (eq-field vendors this file)
+        run: ls -la dist/documents.iife.js

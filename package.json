@@ -1,0 +1,41 @@
+{
+  "name": "@eq-solutions/documents",
+  "version": "0.1.0",
+  "private": false,
+  "license": "UNLICENSED",
+  "author": "CDC Solutions Pty Ltd",
+  "description": "Shared branded-document engine for the EQ suite. Turns a TenantBrandKit (@eq-solutions/contracts) into named Word styles, docx primitives, exceljs themes, an SDT template filler and a six-line brand preflight. Dual-built: ESM for bundled apps (eq-shell, eq-service), a self-contained IIFE for eq-field's no-bundler browser context.",
+  "type": "module",
+  "repository": { "type": "git", "url": "git+https://github.com/eq-solutions/eq-documents.git" },
+  "keywords": ["eq-solutions", "documents", "docx", "xlsx", "brand", "tenant"],
+  "main": "dist/documents.esm.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/types/index.d.ts", "default": "./dist/documents.esm.js" },
+    "./iife": "./dist/documents.iife.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist/", "src/", "build.mjs", "README.md"],
+  "scripts": {
+    "build": "node build.mjs && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1"
+  },
+  "peerDependencies": {
+    "@eq-solutions/contracts": ">=0.2.0"
+  },
+  "devDependencies": {
+    "@eq-solutions/contracts": "github:eq-solutions/eq-contracts#claude/brand-kit-contract",
+    "@types/node": "^22",
+    "esbuild": "^0.24.0",
+    "typescript": "^5"
+  },
+  "publishConfig": { "access": "restricted" },
+  "engines": { "node": ">=18" }
+}
