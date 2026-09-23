@@ -21,3 +21,29 @@ export declare function listSdtTags(xml: string): string[];
  * header/footer parts, so a tag in a letterhead header is filled too.
  */
 export declare function fillDocx(template: Uint8Array | ArrayBuffer | Blob, bindings: Record<string, string>): Promise<FillResult>;
+export interface LoopFillResult extends FillResult {
+    /** Loop tags that were found and expanded. */
+    loopsFilled: string[];
+    /** Loop tags in `loops` whose tag did not exist in the template. */
+    loopsUnmatched: string[];
+}
+/**
+ * Expand a repeating-row loop SDT: authored in Word as one table row wrapped
+ * in a content control (Insert > Controls > Rich Text, tag it e.g.
+ * "Loop:LineItems"), with per-cell content controls inside it (tag e.g.
+ * "Item.Description", "Item.Total"). One row in the template becomes N rows,
+ * one per entry in `items`, each filled by `replaceSdtByTag` against that
+ * item's own bindings. A non-table loop (SDT content with no <w:tr>) repeats
+ * the whole block instead — same mechanism, without the row unwrap.
+ */
+export declare function replaceLoopByTag(xml: string, tag: string, items: Array<Record<string, string>>): {
+    xml: string;
+    count: number;
+};
+/**
+ * fillDocx plus one or more repeating-row loops. Loops expand first (so a
+ * loop's own per-item SDTs never collide with top-level `bindings` of the
+ * same tag name), then ordinary `bindings` fill the rest of the document as
+ * usual.
+ */
+export declare function fillDocxWithLoops(template: Uint8Array | ArrayBuffer | Blob, bindings: Record<string, string>, loops: Record<string, Array<Record<string, string>>>): Promise<LoopFillResult>;
