@@ -576,7 +576,9 @@ var fillDocx_exports = {};
 __export(fillDocx_exports, {
   escapeXml: () => escapeXml,
   fillDocx: () => fillDocx,
+  fillDocxWithLoops: () => fillDocxWithLoops,
   listSdtTags: () => listSdtTags,
+  replaceLoopByTag: () => replaceLoopByTag,
   replaceSdtByTag: () => replaceSdtByTag
 });
 import JSZip from "jszip";
@@ -629,6 +631,75 @@ async function fillDocx(template, bindings) {
   const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
   const unmatched = Object.keys(bindings).filter((t) => !filled.has(t));
   return { bytes, filled: [...filled], unmatched };
+}
+function findNamedSdtSpan(xml, tag) {
+  const tagNeedle = `<w:tag w:val="${tag}"`;
+  let searchFrom = 0;
+  while (true) {
+    const tagIdx = xml.indexOf(tagNeedle, searchFrom);
+    if (tagIdx === -1) return null;
+    const start = xml.lastIndexOf("<w:sdt>", tagIdx);
+    if (start === -1) {
+      searchFrom = tagIdx + tagNeedle.length;
+      continue;
+    }
+    const boundaryRe = /<w:sdt>|<\/w:sdt>/g;
+    boundaryRe.lastIndex = start;
+    let depth = 0;
+    let end = -1;
+    let m;
+    while (m = boundaryRe.exec(xml)) {
+      if (m[0] === "<w:sdt>") depth++;
+      else {
+        depth--;
+        if (depth === 0) {
+          end = m.index + m[0].length;
+          break;
+        }
+      }
+    }
+    if (end === -1) return null;
+    const contentOpen = xml.indexOf("<w:sdtContent>", start);
+    const contentCloseTag = "</w:sdtContent>";
+    const sdtCloseStart = end - "</w:sdt>".length;
+    const contentClose = xml.lastIndexOf(contentCloseTag, sdtCloseStart);
+    if (contentOpen === -1 || contentClose === -1 || contentOpen >= contentClose) return null;
+    return { start, end, contentStart: contentOpen + "<w:sdtContent>".length, contentEnd: contentClose };
+  }
+}
+function replaceLoopByTag(xml, tag, items) {
+  const span = findNamedSdtSpan(xml, tag);
+  if (!span) return { xml, count: 0 };
+  const content = xml.slice(span.contentStart, span.contentEnd);
+  const rowMatch = content.match(/<w:tr[\s>][\s\S]*<\/w:tr>/);
+  const templateBlock = rowMatch ? rowMatch[0] : content;
+  const rows = items.map((item) => {
+    let rowXml = templateBlock;
+    for (const [itemTag, value] of Object.entries(item)) {
+      rowXml = replaceSdtByTag(rowXml, itemTag, value ?? "").xml;
+    }
+    return rowXml;
+  }).join("");
+  const out = xml.slice(0, span.start) + rows + xml.slice(span.end);
+  return { xml: out, count: 1 };
+}
+async function fillDocxWithLoops(template, bindings, loops) {
+  const zip = await JSZip.loadAsync(template);
+  const parts = Object.keys(zip.files).filter((p) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(p));
+  const loopsFilled = /* @__PURE__ */ new Set();
+  for (const part of parts) {
+    let xml = await zip.file(part).async("string");
+    for (const [loopTag, items] of Object.entries(loops)) {
+      const r = replaceLoopByTag(xml, loopTag, items);
+      if (r.count > 0) loopsFilled.add(loopTag);
+      xml = r.xml;
+    }
+    zip.file(part, xml);
+  }
+  const rebuilt = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+  const base = await fillDocx(rebuilt, bindings);
+  const loopsUnmatched = Object.keys(loops).filter((t) => !loopsFilled.has(t));
+  return { ...base, loopsFilled: [...loopsFilled], loopsUnmatched };
 }
 
 // src/preflight/check.ts
