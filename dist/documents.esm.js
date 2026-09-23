@@ -121,8 +121,8 @@ function normalise(tenant, branding) {
     const url = extractImageUrl(b.gateLogoDark);
     if (url) legacyLogos.dark = url;
   }
-  const displayName = asString(b.orgName) ?? asString(tenant.name) ?? tenant.slug;
-  const legalName = asString(tenant.legalName) ?? asString(tenant.name) ?? displayName;
+  const displayName = asString(tenant.name) ?? tenant.slug;
+  const legalName = asString(asRecord(b.legal).legalName) ?? asString(tenant.legalName) ?? displayName;
   const kit = {
     kitVersion: BRAND_KIT_VERSION,
     tenant: { id: tenant.id, slug: tenant.slug, legalName, displayName },

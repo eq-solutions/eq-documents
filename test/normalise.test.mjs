@@ -14,6 +14,12 @@ test('structured branding → complete, valid kit; auth-gate flags ignored', () 
   assert.equal('rememberMeDays' in r.kit, false)
 })
 
+test('branding.legal.legalName wins over the caller-supplied legalName (matches the jvkn SQL builder)', () => {
+  const r = brand.normalise(acmeTenant, { ...acmeBranding, legal: { ...acmeBranding.legal, legalName: 'Acme Holdings Pty Ltd' } })
+  assert.equal(r.kit.tenant.legalName, 'Acme Holdings Pty Ltd')
+  assert.deepEqual(Object.keys(r.kit.legal).sort(), ['abn', 'address', 'phone'], 'legalName is not emitted inside legal')
+})
+
 test('legacy branding → valid but incomplete kit, logo URLs surfaced for measuring', () => {
   const r = brand.normalise(acmeTenant, legacyBranding)
   assert.equal(validateTenantBrandKit(r.kit).ok, true)
@@ -21,7 +27,7 @@ test('legacy branding → valid but incomplete kit, logo URLs surfaced for measu
   assert.deepEqual(r.kit.logos, {})
   assert.equal(r.legacyLogos.light, 'https://example.test/acme/doc-logo.png', 'gateLogo <img> src wins over hubLogo')
   assert.equal(r.legacyLogos.dark, 'https://example.test/acme/doc-logo-dark.png')
-  assert.equal(r.kit.tenant.displayName, 'Acme Field', 'orgName is the display name')
+  assert.equal(r.kit.tenant.displayName, 'Acme', 'orgName is an auth-gate label, not the display name')
   assert.equal(r.kit.fonts.docBody, NEUTRAL_BRAND_KIT.fonts.docBody)
 })
 

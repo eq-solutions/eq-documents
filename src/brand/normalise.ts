@@ -172,8 +172,12 @@ export function normalise(tenant: TenantIdentity, branding: RawBranding): Normal
     if (url) legacyLogos.dark = url
   }
 
-  const displayName = asString(b.orgName) ?? asString(tenant.name) ?? tenant.slug
-  const legalName = asString(tenant.legalName) ?? asString(tenant.name) ?? displayName
+  // Mirrors eq_brand_kit_from_branding() on jvkn exactly: display name is the
+  // organisation's name (branding.orgName is an auth-gate label, e.g.
+  // "EQ Solves — Field", not a document masthead); legal name comes from
+  // branding.legal.legalName, else the caller's legalName, else the name.
+  const displayName = asString(tenant.name) ?? tenant.slug
+  const legalName = asString(asRecord(b.legal).legalName) ?? asString(tenant.legalName) ?? displayName
 
   const kit: TenantBrandKit = {
     kitVersion: BRAND_KIT_VERSION,
