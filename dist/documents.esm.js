@@ -735,9 +735,10 @@ function preflight(kit, facts) {
   checks.push({ id: "ratio", pass: badRatio.length === 0, detail: badRatio.length ? `logo stretched: ${badRatio.map((p) => `${p.width}\xD7${p.height}`).join(", ")}` : void 0 });
   const allowed = allowedHex(kit);
   const foreign = [...new Set(facts.usedHex.map((h) => h.toUpperCase()))].filter((h) => !allowed.has(h));
-  const headContrast = contrastRatio("FFFFFF", kit.palette.primary);
-  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(", ")}` : headContrast < 3 ? `white on primary is ${headContrast.toFixed(1)}:1` : void 0;
-  checks.push({ id: "palette", pass: foreign.length === 0 && headContrast >= 3, detail: paletteDetail });
+  const headFg = textOn(kit.palette.primary, kit.palette.ink);
+  const headContrast = contrastRatio(headFg, kit.palette.primary);
+  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(", ")}` : headContrast < 4.5 ? `${headFg === "FFFFFF" ? "white" : "ink"} on primary is ${headContrast.toFixed(1)}:1` : void 0;
+  checks.push({ id: "palette", pass: foreign.length === 0 && headContrast >= 4.5, detail: paletteDetail });
   const kitFonts = /* @__PURE__ */ new Set([kit.fonts.heading, kit.fonts.body, kit.fonts.docBody]);
   const badFonts = [...new Set(facts.usedFonts)].filter((f) => !kitFonts.has(f));
   checks.push({ id: "fonts", pass: badFonts.length === 0, detail: badFonts.length ? `fonts outside kit: ${badFonts.join(", ")}` : void 0 });

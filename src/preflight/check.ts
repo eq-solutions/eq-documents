@@ -11,7 +11,7 @@
  */
 import JSZip from 'jszip'
 import type { TenantBrandKit } from '@eq-solutions/contracts'
-import { contrastRatio } from '../brand/contrast.js'
+import { contrastRatio, textOn } from '../brand/contrast.js'
 import { HAIRLINE } from '../docx/primitives.js'
 import { mutedInk } from '../docx/styles.js'
 
@@ -76,12 +76,16 @@ export function preflight(kit: TenantBrandKit, facts: DocumentFacts): PreflightR
   const badRatio = (facts.logoPlacements ?? []).filter((p) => expected !== undefined && Math.abs(p.width / p.height - expected) / expected > 0.02)
   checks.push({ id: 'ratio', pass: badRatio.length === 0, detail: badRatio.length ? `logo stretched: ${badRatio.map((p) => `${p.width}×${p.height}`).join(', ')}` : undefined })
 
-  // 3 palette — only kit colours, and readable text on primary.
+  // 3 palette — only kit colours, and readable text on primary. headCell()
+  // (primitives.ts) never hardcodes white — it calls textOn(primary, ink) to
+  // pick whichever of white/ink actually contrasts better, so the check must
+  // grade that real choice, not assume white was used regardless of the kit.
   const allowed = allowedHex(kit)
   const foreign = [...new Set(facts.usedHex.map((h) => h.toUpperCase()))].filter((h) => !allowed.has(h))
-  const headContrast = contrastRatio('FFFFFF', kit.palette.primary)
-  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(', ')}` : headContrast < 3 ? `white on primary is ${headContrast.toFixed(1)}:1` : undefined
-  checks.push({ id: 'palette', pass: foreign.length === 0 && headContrast >= 3, detail: paletteDetail })
+  const headFg = textOn(kit.palette.primary, kit.palette.ink)
+  const headContrast = contrastRatio(headFg, kit.palette.primary)
+  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(', ')}` : headContrast < 4.5 ? `${headFg === 'FFFFFF' ? 'white' : 'ink'} on primary is ${headContrast.toFixed(1)}:1` : undefined
+  checks.push({ id: 'palette', pass: foreign.length === 0 && headContrast >= 4.5, detail: paletteDetail })
 
   // 4 fonts — only the kit's three families.
   const kitFonts = new Set([kit.fonts.heading, kit.fonts.body, kit.fonts.docBody])
