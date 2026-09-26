@@ -77,6 +77,28 @@ export interface SignatureCellOptions {
 }
 /** Signature/attendance cell: bold name, then the signature image or a blank line. Ice-shaded, same "white on blue" table family as dataTable/kvTable. */
 export declare function signatureCell(kit: TenantBrandKit, opts: SignatureCellOptions): TableCell;
+export interface SignatureAttendee {
+    name: string;
+    sig?: {
+        bytes: Uint8Array | ArrayBuffer | Buffer;
+        mime: ImageMime;
+    };
+}
+export interface SignatureGridOptions {
+    attendees: SignatureAttendee[];
+    /** Columns per row. Default 2 (the crew sign-off grid both current generators use). */
+    columns?: number;
+    sigWidthPx?: number;
+    sigHeightPx?: number;
+}
+/**
+ * Signature/attendance grid, N-up (default 2) — a complete Table, so a
+ * no-bundler consumer (eq-field) that has no access to the raw docx classes
+ * (Table/TableRow) can still build a crew sign-off sheet from signatureCell
+ * without them. Unlike signatureCell (a bare TableCell for a consumer that
+ * already has Table/TableRow), this is the primitive Field actually calls.
+ */
+export declare function signatureGrid(kit: TenantBrandKit, opts: SignatureGridOptions): Table;
 export interface PhotoGridPhoto {
     bytes: Uint8Array | ArrayBuffer | Buffer;
     mime: ImageMime;

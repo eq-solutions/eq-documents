@@ -266,6 +266,55 @@ export function signatureCell(kit: TenantBrandKit, opts: SignatureCellOptions): 
   })
 }
 
+export interface SignatureAttendee {
+  name: string
+  sig?: { bytes: Uint8Array | ArrayBuffer | Buffer; mime: ImageMime }
+}
+
+export interface SignatureGridOptions {
+  attendees: SignatureAttendee[]
+  /** Columns per row. Default 2 (the crew sign-off grid both current generators use). */
+  columns?: number
+  sigWidthPx?: number
+  sigHeightPx?: number
+}
+
+function blankIceCell(kit: TenantBrandKit, widthPct: number): TableCell {
+  return new TableCell({
+    width: { size: widthPct, type: WidthType.PERCENTAGE },
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' },
+    children: [new Paragraph('')],
+  })
+}
+
+/**
+ * Signature/attendance grid, N-up (default 2) — a complete Table, so a
+ * no-bundler consumer (eq-field) that has no access to the raw docx classes
+ * (Table/TableRow) can still build a crew sign-off sheet from signatureCell
+ * without them. Unlike signatureCell (a bare TableCell for a consumer that
+ * already has Table/TableRow), this is the primitive Field actually calls.
+ */
+export function signatureGrid(kit: TenantBrandKit, opts: SignatureGridOptions): Table {
+  const cols = opts.columns ?? 2
+  const widthPct = Math.floor(100 / cols)
+  const rows: TableRow[] = []
+  for (let i = 0; i < opts.attendees.length; i += cols) {
+    const rowAttendees = opts.attendees.slice(i, i + cols)
+    const cells: TableCell[] = []
+    for (let c = 0; c < cols; c++) {
+      const a = rowAttendees[c]
+      cells.push(
+        a
+          ? signatureCell(kit, { name: a.name, sig: a.sig, sigWidthPx: opts.sigWidthPx, sigHeightPx: opts.sigHeightPx, widthPct })
+          : blankIceCell(kit, widthPct),
+      )
+    }
+    rows.push(new TableRow({ cantSplit: true, children: cells }))
+  }
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows })
+}
+
 export interface PhotoGridPhoto {
   bytes: Uint8Array | ArrayBuffer | Buffer
   mime: ImageMime

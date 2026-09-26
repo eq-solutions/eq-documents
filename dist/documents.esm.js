@@ -210,6 +210,7 @@ __export(docx_exports, {
   pageA4: () => pageA4,
   photoGrid: () => photoGrid,
   signatureCell: () => signatureCell,
+  signatureGrid: () => signatureGrid,
   small: () => small,
   spacer: () => spacer,
   toBlob: () => toBlob,
@@ -503,6 +504,31 @@ function signatureCell(kit, opts) {
     verticalAlign: VerticalAlign.CENTER,
     children: [nameP, sigP]
   });
+}
+function blankIceCell(kit, widthPct) {
+  return new TableCell({
+    width: { size: widthPct, type: WidthType.PERCENTAGE },
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" },
+    children: [new Paragraph("")]
+  });
+}
+function signatureGrid(kit, opts) {
+  const cols = opts.columns ?? 2;
+  const widthPct = Math.floor(100 / cols);
+  const rows = [];
+  for (let i = 0; i < opts.attendees.length; i += cols) {
+    const rowAttendees = opts.attendees.slice(i, i + cols);
+    const cells = [];
+    for (let c = 0; c < cols; c++) {
+      const a = rowAttendees[c];
+      cells.push(
+        a ? signatureCell(kit, { name: a.name, sig: a.sig, sigWidthPx: opts.sigWidthPx, sigHeightPx: opts.sigHeightPx, widthPct }) : blankIceCell(kit, widthPct)
+      );
+    }
+    rows.push(new TableRow({ cantSplit: true, children: cells }));
+  }
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
 }
 function photoCell(photo, widthPx, heightPx, widthPct) {
   if (!photo) {

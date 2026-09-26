@@ -107,9 +107,13 @@ test('toBlob works where Blob exists (browser path)', async () => {
   assert.ok(blob.size > 1000)
 })
 
-test('signatureCell + photoGrid render alongside a logo, and preflight grades only the logo\'s ratio', async () => {
-  const { Table, TableRow } = await import('docx')
-  const sigTable = new Table({ rows: [new TableRow({ children: [docx.signatureCell(acmeKit, { name: 'A. Person', sig: { bytes: PNG_1x1, mime: 'image/png' } })] })] })
+test('signatureGrid + photoGrid render alongside a logo, and preflight grades only the logo\'s ratio', async () => {
+  const sigTable = docx.signatureGrid(acmeKit, {
+    attendees: [
+      { name: 'A. Person', sig: { bytes: PNG_1x1, mime: 'image/png' } },
+      { name: 'B. Person' }, // unsigned — blank ice cell, no image
+    ],
+  })
   const photos = docx.photoGrid(acmeKit, {
     photos: [
       { bytes: PNG_1x1, mime: 'image/png', caption: 'Before' },
