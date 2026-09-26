@@ -79,6 +79,28 @@ test('preflight catches a foreign colour, a stretched logo, a foreign font and a
   assert.ok(r.line.includes('✗ fonts → fonts outside kit: Plus Jakarta Sans'))
 })
 
+test('preflight grades the header text colour textOn() actually picked, not an assumed white', () => {
+  // A light primary (EQ's real sky blue) fails contrast with white (2.70:1)
+  // but passes easily with a dark ink (6.33:1) — headCell() calls
+  // textOn(primary, ink) and gets ink, so the rendered header is never
+  // actually white. The palette check must grade that real choice.
+  const lightPrimaryKit = {
+    ...acmeKit,
+    palette: { primary: '3DA8D8', deep: '2986B4', ice: 'EAF5FB', ink: '1A1A2E' },
+  }
+  const r = preflight.preflight(lightPrimaryKit, {
+    usedHex: ['3DA8D8', '2986B4', 'EAF5FB', '1A1A2E', 'FFFFFF', 'AUTO'],
+    usedFonts: [acmeKit.fonts.heading, acmeKit.fonts.body, acmeKit.fonts.docBody],
+    hasEffects: false,
+    hasFooter: true,
+    footerText: acmeKit.tenant.legalName,
+    logoSources: [],
+    logoPlacements: [],
+  })
+  const palette = r.checks.find((c) => c.id === 'palette')
+  assert.equal(palette.pass, true, palette.detail)
+})
+
 test('toBlob works where Blob exists (browser path)', async () => {
   const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.body('x')] }] })
   const blob = await docx.toBlob(doc)
