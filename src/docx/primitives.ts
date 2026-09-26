@@ -43,15 +43,43 @@ export function pageA4(): NonNullable<ISectionOptions['properties']> {
   }
 }
 
+/** docPr name/descr/title stamped on every logoRun so preflight's extractFacts can tell a kit
+ *  logo apart from a signature or photo image and grade only the logo's aspect ratio. */
+const KIT_LOGO_ALT_TEXT = { title: 'kit-logo', description: 'kit-logo', name: 'kit-logo' }
+
 /** Emit a logo run at a given display width, deriving height from the STORED aspect ratio. Never re-measures. */
 export function logoRun(asset: LogoAsset, bytes: Uint8Array | ArrayBuffer | Buffer, widthPx: number): ImageRun {
   const heightPx = Math.round(widthPx / (asset.widthPx / asset.heightPx))
   const type = asset.mime === 'image/svg+xml' ? 'svg' : asset.mime === 'image/jpeg' ? 'jpg' : 'png'
   if (type === 'svg') {
     // docx requires a raster fallback for SVG; consumers should rasterise at upload. Until then, treat as png bytes.
-    return new ImageRun({ type: 'png', data: bytes as Buffer, transformation: { width: widthPx, height: heightPx } })
+    return new ImageRun({ type: 'png', data: bytes as Buffer, transformation: { width: widthPx, height: heightPx }, altText: KIT_LOGO_ALT_TEXT })
   }
-  return new ImageRun({ type, data: bytes as Buffer, transformation: { width: widthPx, height: heightPx } })
+  return new ImageRun({ type, data: bytes as Buffer, transformation: { width: widthPx, height: heightPx }, altText: KIT_LOGO_ALT_TEXT })
+}
+
+export type ImageMime = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/bmp'
+
+function imageType(mime: ImageMime): 'png' | 'jpg' | 'gif' | 'bmp' {
+  return mime === 'image/jpeg' ? 'jpg' : (mime.slice('image/'.length) as 'png' | 'gif' | 'bmp')
+}
+
+export interface ImageRunOptions {
+  bytes: Uint8Array | ArrayBuffer | Buffer
+  mime: ImageMime
+  widthPx: number
+  heightPx: number
+}
+
+/**
+ * Generic inline image run at a caller-given display size — unlike logoRun,
+ * takes no LogoAsset and does no aspect-ratio derivation; the caller decides
+ * the box (matches docx-builder.js's imgRun, which places signatures/photos
+ * at a fixed EMU size regardless of the source image's own dimensions).
+ * Deliberately untagged (no altText) so preflight's logo-ratio check ignores it.
+ */
+export function imageRun(opts: ImageRunOptions): ImageRun {
+  return new ImageRun({ type: imageType(opts.mime), data: opts.bytes as Buffer, transformation: { width: opts.widthPx, height: opts.heightPx } })
 }
 
 export interface MastheadOptions {
@@ -202,4 +230,80 @@ export function kvTable(kit: TenantBrandKit, pairs: Array<[string, string]>, lab
         }),
     ),
   })
+}
+
+export interface SignatureCellOptions {
+  name: string
+  /** Signature image bytes + mime. Omit for an unsigned attendee (blank line, same cell height). */
+  sig?: { bytes: Uint8Array | ArrayBuffer | Buffer; mime: ImageMime }
+  /** Display box for the signature image. Defaults match docx-builder.js's imgRun default (~1.5"×0.5" @96dpi). */
+  sigWidthPx?: number
+  sigHeightPx?: number
+  widthPct?: number
+}
+
+/** Signature/attendance cell: bold name, then the signature image or a blank line. Ice-shaded, same "white on blue" table family as dataTable/kvTable. */
+export function signatureCell(kit: TenantBrandKit, opts: SignatureCellOptions): TableCell {
+  const nameP = new Paragraph({ style: 'DocTableCell', children: [new TextRun({ text: opts.name, bold: true })] })
+  const sigP = opts.sig
+    ? new Paragraph({
+        children: [
+          imageRun({
+            bytes: opts.sig.bytes,
+            mime: opts.sig.mime,
+            widthPx: opts.sigWidthPx ?? 144,
+            heightPx: opts.sigHeightPx ?? 48,
+          }),
+        ],
+      })
+    : new Paragraph({ style: 'DocTableCell', children: [new TextRun('')] })
+  return new TableCell({
+    width: opts.widthPct ? { size: opts.widthPct, type: WidthType.PERCENTAGE } : undefined,
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' },
+    verticalAlign: VerticalAlign.CENTER,
+    children: [nameP, sigP],
+  })
+}
+
+export interface PhotoGridPhoto {
+  bytes: Uint8Array | ArrayBuffer | Buffer
+  mime: ImageMime
+  caption?: string
+}
+
+export interface PhotoGridOptions {
+  photos: PhotoGridPhoto[]
+  /** Columns per row. Default 2 (the "2-up" grid both current generators use). */
+  columns?: number
+  /** Display box per photo. Defaults match docx-builder.js's imgRun default for photos (3"×2.25" @96dpi). */
+  photoWidthPx?: number
+  photoHeightPx?: number
+}
+
+function photoCell(photo: PhotoGridPhoto | undefined, widthPx: number, heightPx: number, widthPct: number): TableCell {
+  if (!photo) {
+    return new TableCell({ width: { size: widthPct, type: WidthType.PERCENTAGE }, borders: noBorders, children: [new Paragraph('')] })
+  }
+  const children: Paragraph[] = [
+    new Paragraph({ alignment: AlignmentType.CENTER, children: [imageRun({ bytes: photo.bytes, mime: photo.mime, widthPx, heightPx })] }),
+  ]
+  if (photo.caption) children.push(new Paragraph({ style: 'DocSmall', alignment: AlignmentType.CENTER, children: [new TextRun(photo.caption)] }))
+  return new TableCell({ width: { size: widthPct, type: WidthType.PERCENTAGE }, borders: noBorders, children })
+}
+
+/** Photo grid, N-up (default 2), borderless cells, each photo centred with an optional caption below it. The "2-up photo grid" both Field and Service already hand-build. */
+export function photoGrid(kit: TenantBrandKit, opts: PhotoGridOptions): Table {
+  const cols = opts.columns ?? 2
+  const widthPct = Math.floor(100 / cols)
+  const widthPx = opts.photoWidthPx ?? 288
+  const heightPx = opts.photoHeightPx ?? 216
+  const rows: TableRow[] = []
+  for (let i = 0; i < opts.photos.length; i += cols) {
+    const rowPhotos = opts.photos.slice(i, i + cols)
+    const cells: TableCell[] = []
+    for (let c = 0; c < cols; c++) cells.push(photoCell(rowPhotos[c], widthPx, heightPx, widthPct))
+    rows.push(new TableRow({ cantSplit: true, children: cells }))
+  }
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: noBorders, rows })
 }

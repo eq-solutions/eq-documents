@@ -202,11 +202,14 @@ __export(docx_exports, {
   footerText: () => footerText,
   h1: () => h1,
   h2: () => h2,
+  imageRun: () => imageRun,
   kvTable: () => kvTable,
   logoRun: () => logoRun,
   masthead: () => masthead,
   mutedInk: () => mutedInk,
   pageA4: () => pageA4,
+  photoGrid: () => photoGrid,
+  signatureCell: () => signatureCell,
   small: () => small,
   spacer: () => spacer,
   toBlob: () => toBlob,
@@ -352,13 +355,20 @@ function pageA4() {
     }
   };
 }
+var KIT_LOGO_ALT_TEXT = { title: "kit-logo", description: "kit-logo", name: "kit-logo" };
 function logoRun(asset, bytes, widthPx) {
   const heightPx = Math.round(widthPx / (asset.widthPx / asset.heightPx));
   const type = asset.mime === "image/svg+xml" ? "svg" : asset.mime === "image/jpeg" ? "jpg" : "png";
   if (type === "svg") {
-    return new ImageRun({ type: "png", data: bytes, transformation: { width: widthPx, height: heightPx } });
+    return new ImageRun({ type: "png", data: bytes, transformation: { width: widthPx, height: heightPx }, altText: KIT_LOGO_ALT_TEXT });
   }
-  return new ImageRun({ type, data: bytes, transformation: { width: widthPx, height: heightPx } });
+  return new ImageRun({ type, data: bytes, transformation: { width: widthPx, height: heightPx }, altText: KIT_LOGO_ALT_TEXT });
+}
+function imageType(mime) {
+  return mime === "image/jpeg" ? "jpg" : mime.slice("image/".length);
+}
+function imageRun(opts) {
+  return new ImageRun({ type: imageType(opts.mime), data: opts.bytes, transformation: { width: opts.widthPx, height: opts.heightPx } });
 }
 function masthead(kit, opts) {
   const left = [new Paragraph({ style: "DocTitle", children: [new TextRun(opts.title)] })];
@@ -473,6 +483,50 @@ function kvTable(kit, pairs, labelWidthPct = 30) {
       })
     )
   });
+}
+function signatureCell(kit, opts) {
+  const nameP = new Paragraph({ style: "DocTableCell", children: [new TextRun({ text: opts.name, bold: true })] });
+  const sigP = opts.sig ? new Paragraph({
+    children: [
+      imageRun({
+        bytes: opts.sig.bytes,
+        mime: opts.sig.mime,
+        widthPx: opts.sigWidthPx ?? 144,
+        heightPx: opts.sigHeightPx ?? 48
+      })
+    ]
+  }) : new Paragraph({ style: "DocTableCell", children: [new TextRun("")] });
+  return new TableCell({
+    width: opts.widthPct ? { size: opts.widthPct, type: WidthType.PERCENTAGE } : void 0,
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" },
+    verticalAlign: VerticalAlign.CENTER,
+    children: [nameP, sigP]
+  });
+}
+function photoCell(photo, widthPx, heightPx, widthPct) {
+  if (!photo) {
+    return new TableCell({ width: { size: widthPct, type: WidthType.PERCENTAGE }, borders: noBorders, children: [new Paragraph("")] });
+  }
+  const children = [
+    new Paragraph({ alignment: AlignmentType2.CENTER, children: [imageRun({ bytes: photo.bytes, mime: photo.mime, widthPx, heightPx })] })
+  ];
+  if (photo.caption) children.push(new Paragraph({ style: "DocSmall", alignment: AlignmentType2.CENTER, children: [new TextRun(photo.caption)] }));
+  return new TableCell({ width: { size: widthPct, type: WidthType.PERCENTAGE }, borders: noBorders, children });
+}
+function photoGrid(kit, opts) {
+  const cols = opts.columns ?? 2;
+  const widthPct = Math.floor(100 / cols);
+  const widthPx = opts.photoWidthPx ?? 288;
+  const heightPx = opts.photoHeightPx ?? 216;
+  const rows = [];
+  for (let i = 0; i < opts.photos.length; i += cols) {
+    const rowPhotos = opts.photos.slice(i, i + cols);
+    const cells = [];
+    for (let c = 0; c < cols; c++) cells.push(photoCell(rowPhotos[c], widthPx, heightPx, widthPct));
+    rows.push(new TableRow({ cantSplit: true, children: cells }));
+  }
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: noBorders, rows });
 }
 
 // src/docx/pack.ts
@@ -752,7 +806,9 @@ function preflight(kit, facts) {
 var HEX_ATTR = /w:(?:color|fill|themeColor)="([0-9A-Fa-f]{6}|auto)"/g;
 var FONT_ATTR = /w:(?:ascii|hAnsi|cs|eastAsia)="([^"]+)"/g;
 var EFFECT_TAGS = /<w:(?:shadow|glow|reflection|effect|gradFill|outline|emboss|imprint)[\s/>]|<a:gradFill|<a:effectLst>\s*<a:/;
-var EXTENT = /<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"/g;
+var DRAWING_BLOCK = /<w:drawing>[\s\S]*?<\/w:drawing>/g;
+var KIT_LOGO_DOC_PR = /<wp:docPr[^>]*\bname="kit-logo"/;
+var EXTENT = /<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"/;
 async function extractFacts(docx) {
   const zip = await JSZip2.loadAsync(docx);
   const parts = Object.keys(zip.files).filter((p) => /^word\/(document|styles|header\d*|footer\d*|numbering)\.xml$/.test(p));
@@ -767,7 +823,11 @@ async function extractFacts(docx) {
     for (const m of xml.matchAll(HEX_ATTR)) usedHex.add(m[1].toUpperCase());
     for (const m of xml.matchAll(FONT_ATTR)) usedFonts.add(m[1]);
     if (EFFECT_TAGS.test(xml)) hasEffects = true;
-    for (const m of xml.matchAll(EXTENT)) logoPlacements.push({ width: Number(m[1]), height: Number(m[2]) });
+    for (const block of xml.matchAll(DRAWING_BLOCK)) {
+      if (!KIT_LOGO_DOC_PR.test(block[0])) continue;
+      const m = EXTENT.exec(block[0]);
+      if (m) logoPlacements.push({ width: Number(m[1]), height: Number(m[2]) });
+    }
     if (/^word\/footer\d*\.xml$/.test(part)) {
       hasFooter = true;
       footerText2 += xml.replace(/<[^>]+>/g, " ");
