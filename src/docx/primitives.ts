@@ -28,6 +28,15 @@ import { textOn } from '../brand/contrast.js'
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export const HAIRLINE = 'CCCCCC'
 
+/**
+ * Fixed regulatory-alert amber, independent of tenant palette. Deliberately
+ * NOT kit-driven: an alert (e.g. a WHS Reg Schedule 3 High-Risk Construction
+ * Work flag) needs to look the same for every tenant and never blend into
+ * that tenant's own branded fields — the exact reason eq-field hand-coded
+ * this colour in v3.5.576 before this kit existed. Same treatment as HAIRLINE.
+ */
+export const ALERT_AMBER = 'D97706'
+
 const hairline: IBorderOptions = { style: BorderStyle.SINGLE, size: 4, color: HAIRLINE }
 const borders = { top: hairline, bottom: hairline, left: hairline, right: hairline }
 const noBorder: IBorderOptions = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
@@ -204,6 +213,38 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
       ),
     ],
   })
+}
+
+export interface AlertRowOptions {
+  /** Cell text for the alert row. */
+  text: string
+  /** Column widths in percent; defaults to equal. Pass the same widths as the surrounding dataTable for a matching row. */
+  widths?: number[]
+  /** Number of cells to span the text across (merged via colSpan). Default 1 (single full-width cell). */
+  columns?: number
+}
+
+function alertCell(text: string, widthPct?: number, columnSpan?: number): TableCell {
+  return new TableCell({
+    width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : undefined,
+    columnSpan,
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: ALERT_AMBER, color: 'auto' },
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun({ text, bold: true, color: 'FFFFFF' })] })],
+  })
+}
+
+/**
+ * A single full-width alert row (fixed amber fill, bold white text) for a
+ * regulatory/safety flag that must stand out regardless of tenant brand —
+ * e.g. a WHS Reg Schedule 3 High-Risk Construction Work line in a Prestart
+ * table. Not part of the "white on kit-primary" dataTable/kvTable family:
+ * this colour never comes from the kit. Drop it in as its own TableRow
+ * alongside dataTable's rows, or as a standalone one-row Table.
+ */
+export function alertRow(opts: AlertRowOptions): TableRow {
+  return new TableRow({ cantSplit: true, children: [alertCell(opts.text, opts.widths?.[0], opts.columns)] })
 }
 
 /** Two-column label/value table: label cells in ice, values plain. The "kvTable" both Field and Service draw by hand today. */

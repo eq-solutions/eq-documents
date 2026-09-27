@@ -14,9 +14,9 @@ test('IIFE bundle loads standalone and exposes the Field surface', async () => {
   vm.runInNewContext(src, window)
   const EQ = window.EQDocuments
   assert.ok(EQ, 'window.EQDocuments defined')
-  assert.equal(EQ.VERSION, '0.1.4')
+  assert.equal(EQ.VERSION, '0.1.5')
   for (const k of ['brand', 'docx', 'template', 'preflight', 'NEUTRAL_BRAND_KIT', 'validateTenantBrandKit']) assert.ok(k in EQ, k)
-  for (const k of ['imageRun', 'signatureCell', 'signatureGrid', 'photoGrid']) assert.ok(k in EQ.docx, `docx.${k}`)
+  for (const k of ['imageRun', 'signatureCell', 'signatureGrid', 'photoGrid', 'alertRow', 'ALERT_AMBER']) assert.ok(k in EQ.docx, `docx.${k}`)
   assert.equal('xlsx' in EQ, false, 'exceljs is not in the Field bundle')
   const r = EQ.brand.normalise({ id: 'x', slug: 'acme' }, { palette: { primary: '1F4E79', deep: '2E75B6', ice: 'EAF1FB', ink: '1B1B24' } })
   assert.equal(r.kit.palette.primary, '1F4E79')

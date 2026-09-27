@@ -6,10 +6,18 @@
  *
  * Every primitive takes the kit explicitly. Nothing here reads globals.
  */
-import { Footer, ImageRun, Paragraph, Table, TableCell, type ISectionOptions } from 'docx';
+import { Footer, ImageRun, Paragraph, Table, TableCell, TableRow, type ISectionOptions } from 'docx';
 import type { LogoAsset, TenantBrandKit } from '@eq-solutions/contracts';
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export declare const HAIRLINE = "CCCCCC";
+/**
+ * Fixed regulatory-alert amber, independent of tenant palette. Deliberately
+ * NOT kit-driven: an alert (e.g. a WHS Reg Schedule 3 High-Risk Construction
+ * Work flag) needs to look the same for every tenant and never blend into
+ * that tenant's own branded fields — the exact reason eq-field hand-coded
+ * this colour in v3.5.576 before this kit existed. Same treatment as HAIRLINE.
+ */
+export declare const ALERT_AMBER = "D97706";
 /** A4 portrait with 2 cm margins. Pass as `properties` on a section. */
 export declare function pageA4(): NonNullable<ISectionOptions['properties']>;
 /** Emit a logo run at a given display width, deriving height from the STORED aspect ratio. Never re-measures. */
@@ -61,6 +69,23 @@ export interface DataTableOptions {
 }
 /** Header row in primary fill with white text, zebra body rows in ice, hairline borders. The "white on blue" rule both briefs share. */
 export declare function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table;
+export interface AlertRowOptions {
+    /** Cell text for the alert row. */
+    text: string;
+    /** Column widths in percent; defaults to equal. Pass the same widths as the surrounding dataTable for a matching row. */
+    widths?: number[];
+    /** Number of cells to span the text across (merged via colSpan). Default 1 (single full-width cell). */
+    columns?: number;
+}
+/**
+ * A single full-width alert row (fixed amber fill, bold white text) for a
+ * regulatory/safety flag that must stand out regardless of tenant brand —
+ * e.g. a WHS Reg Schedule 3 High-Risk Construction Work line in a Prestart
+ * table. Not part of the "white on kit-primary" dataTable/kvTable family:
+ * this colour never comes from the kit. Drop it in as its own TableRow
+ * alongside dataTable's rows, or as a standalone one-row Table.
+ */
+export declare function alertRow(opts: AlertRowOptions): TableRow;
 /** Two-column label/value table: label cells in ice, values plain. The "kvTable" both Field and Service draw by hand today. */
 export declare function kvTable(kit: TenantBrandKit, pairs: Array<[string, string]>, labelWidthPct?: number): Table;
 export interface SignatureCellOptions {

@@ -191,9 +191,11 @@ function textOn(fillHex, inkHex) {
 // src/docx/index.ts
 var docx_exports = {};
 __export(docx_exports, {
+  ALERT_AMBER: () => ALERT_AMBER,
   DOC_STYLE_IDS: () => DOC_STYLE_IDS,
   HAIRLINE: () => HAIRLINE,
   accentOf: () => accentOf,
+  alertRow: () => alertRow,
   body: () => body,
   createDocument: () => createDocument,
   dataTable: () => dataTable,
@@ -344,6 +346,7 @@ import {
   WidthType
 } from "docx";
 var HAIRLINE = "CCCCCC";
+var ALERT_AMBER = "D97706";
 var hairline = { style: BorderStyle2.SINGLE, size: 4, color: HAIRLINE };
 var borders = { top: hairline, bottom: hairline, left: hairline, right: hairline };
 var noBorder = { style: BorderStyle2.NONE, size: 0, color: "FFFFFF" };
@@ -461,6 +464,19 @@ function dataTable(kit, opts) {
       )
     ]
   });
+}
+function alertCell(text, widthPct, columnSpan) {
+  return new TableCell({
+    width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : void 0,
+    columnSpan,
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: ALERT_AMBER, color: "auto" },
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ style: "DocTableCell", children: [new TextRun({ text, bold: true, color: "FFFFFF" })] })]
+  });
+}
+function alertRow(opts) {
+  return new TableRow({ cantSplit: true, children: [alertCell(opts.text, opts.widths?.[0], opts.columns)] });
 }
 function kvTable(kit, pairs, labelWidthPct = 30) {
   return new Table({
@@ -799,6 +815,7 @@ function allowedHex(kit) {
     kit.palette.ink,
     "FFFFFF",
     HAIRLINE,
+    ALERT_AMBER,
     mutedInk(kit),
     "AUTO"
   ]);
