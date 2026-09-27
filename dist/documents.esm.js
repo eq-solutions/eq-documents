@@ -334,6 +334,7 @@ import {
   BorderStyle as BorderStyle2,
   Footer,
   ImageRun,
+  PageNumber,
   Paragraph,
   ShadingType,
   Table,
@@ -404,13 +405,17 @@ function footerText(kit) {
   if (kit.legal.web) parts.push(kit.legal.web);
   return parts.join("  |  ");
 }
-function footer(kit) {
+function footer(kit, opts = {}) {
+  const children = [new TextRun(footerText(kit))];
+  if (opts.pageNumbers) {
+    children.push(new TextRun("  |  Page "), new TextRun({ children: [PageNumber.CURRENT] }), new TextRun(" of "), new TextRun({ children: [PageNumber.TOTAL_PAGES] }));
+  }
   return new Footer({
     children: [
       new Paragraph({
         style: "DocFooter",
         border: { top: { style: BorderStyle2.SINGLE, size: 6, color: kit.palette.primary, space: 4 } },
-        children: [new TextRun(footerText(kit))]
+        children
       })
     ]
   });
@@ -558,7 +563,7 @@ function photoGrid(kit, opts) {
 // src/docx/pack.ts
 import { Document, Packer } from "docx";
 function createDocument(kit, opts) {
-  const kitFooter = footer(kit);
+  const kitFooter = footer(kit, { pageNumbers: opts.pageNumbers });
   return new Document({
     creator: opts.creator ?? kit.tenant.displayName,
     title: opts.title,
