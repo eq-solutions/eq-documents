@@ -52,8 +52,12 @@ export interface MastheadOptions {
 export declare function masthead(kit: TenantBrandKit, opts: MastheadOptions): Table;
 /** Footer line from kit.legal: `Legal Name | ABN … | address | phone`. Omits missing parts, never invents them. */
 export declare function footerText(kit: TenantBrandKit): string;
-/** Page footer with the legal line in DocFooter style and a primary-colour top rule. */
-export declare function footer(kit: TenantBrandKit): Footer;
+export interface FooterOptions {
+    /** Append ` | Page {current} of {total}` using docx's native PAGE/NUMPAGES fields. Default false — not every document wants pagination (e.g. a one-page confirmation). */
+    pageNumbers?: boolean;
+}
+/** Page footer with the legal line in DocFooter style, a primary-colour top rule, and optional page numbering. */
+export declare function footer(kit: TenantBrandKit, opts?: FooterOptions): Footer;
 export declare function h1(text: string): Paragraph;
 export declare function h2(text: string): Paragraph;
 export declare function body(text: string): Paragraph;

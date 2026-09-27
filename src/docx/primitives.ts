@@ -11,6 +11,7 @@ import {
   BorderStyle,
   Footer,
   ImageRun,
+  PageNumber,
   Paragraph,
   ShadingType,
   Table,
@@ -140,14 +141,23 @@ export function footerText(kit: TenantBrandKit): string {
   return parts.join('  |  ')
 }
 
-/** Page footer with the legal line in DocFooter style and a primary-colour top rule. */
-export function footer(kit: TenantBrandKit): Footer {
+export interface FooterOptions {
+  /** Append ` | Page {current} of {total}` using docx's native PAGE/NUMPAGES fields. Default false — not every document wants pagination (e.g. a one-page confirmation). */
+  pageNumbers?: boolean
+}
+
+/** Page footer with the legal line in DocFooter style, a primary-colour top rule, and optional page numbering. */
+export function footer(kit: TenantBrandKit, opts: FooterOptions = {}): Footer {
+  const children = [new TextRun(footerText(kit))]
+  if (opts.pageNumbers) {
+    children.push(new TextRun('  |  Page '), new TextRun({ children: [PageNumber.CURRENT] }), new TextRun(' of '), new TextRun({ children: [PageNumber.TOTAL_PAGES] }))
+  }
   return new Footer({
     children: [
       new Paragraph({
         style: 'DocFooter',
         border: { top: { style: BorderStyle.SINGLE, size: 6, color: kit.palette.primary, space: 4 } },
-        children: [new TextRun(footerText(kit))],
+        children,
       }),
     ],
   })
