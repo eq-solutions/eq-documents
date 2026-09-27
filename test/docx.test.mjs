@@ -176,9 +176,8 @@ test('signatureGrid + photoGrid render alongside a logo, and preflight grades on
 })
 
 
-test('alertRow keeps its fixed amber regardless of tenant kit, and preflight allows it', async () => {
-  const { Table } = await import('docx')
-  const alertTable = new Table({ rows: [docx.alertRow({ text: 'HIGH-RISK CONSTRUCTION WORK — WHS Reg Sch 3' })] })
+test('alertTable keeps its fixed amber regardless of tenant kit, and preflight allows it', async () => {
+  const alertTable = docx.alertTable({ lines: ['HIGH-RISK CONSTRUCTION WORK — WHS Reg Sch 3'] })
   const doc = docx.createDocument(acmeKit, {
     sections: [{ children: [docx.h1('Prestart'), alertTable, docx.dataTable(acmeKit, { head: ['Name'], rows: [['A']] })] }],
   })
@@ -191,7 +190,7 @@ test('alertRow keeps its fixed amber regardless of tenant kit, and preflight all
   assert.equal(result.ok, true, result.line)
 
   // Same amber for a completely different tenant kit — it's not palette-derived.
-  const neutralAlertTable = new Table({ rows: [docx.alertRow({ text: 'HIGH-RISK CONSTRUCTION WORK' })] })
+  const neutralAlertTable = docx.alertTable({ lines: ['HIGH-RISK CONSTRUCTION WORK'] })
   const neutralDoc = docx.createDocument(neutralKit, { sections: [{ children: [neutralAlertTable] }] })
   const neutralBytes = await docx.toUint8Array(neutralDoc)
   const neutralFacts = await preflight.extractFacts(neutralBytes)

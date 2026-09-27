@@ -6,7 +6,7 @@
  *
  * Every primitive takes the kit explicitly. Nothing here reads globals.
  */
-import { Footer, ImageRun, Paragraph, Table, TableCell, TableRow, type ISectionOptions } from 'docx';
+import { Footer, ImageRun, Paragraph, Table, TableCell, type ISectionOptions } from 'docx';
 import type { LogoAsset, TenantBrandKit } from '@eq-solutions/contracts';
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export declare const HAIRLINE = "CCCCCC";
@@ -73,23 +73,22 @@ export interface DataTableOptions {
 }
 /** Header row in primary fill with white text, zebra body rows in ice, hairline borders. The "white on blue" rule both briefs share. */
 export declare function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table;
-export interface AlertRowOptions {
-    /** Cell text for the alert row. */
-    text: string;
-    /** Column widths in percent; defaults to equal. Pass the same widths as the surrounding dataTable for a matching row. */
-    widths?: number[];
-    /** Number of cells to span the text across (merged via colSpan). Default 1 (single full-width cell). */
-    columns?: number;
+export interface AlertTableOptions {
+    /** One full-width amber row per line — e.g. one row per selected HRCW category. */
+    lines: string[];
 }
 /**
- * A single full-width alert row (fixed amber fill, bold white text) for a
+ * Alert table: one full-width amber row per line, bold white text, for a
  * regulatory/safety flag that must stand out regardless of tenant brand —
- * e.g. a WHS Reg Schedule 3 High-Risk Construction Work line in a Prestart
- * table. Not part of the "white on kit-primary" dataTable/kvTable family:
- * this colour never comes from the kit. Drop it in as its own TableRow
- * alongside dataTable's rows, or as a standalone one-row Table.
+ * e.g. WHS Reg Schedule 3 High-Risk Construction Work categories in a
+ * Prestart. Not part of the "white on kit-primary" dataTable/kvTable
+ * family: this colour never comes from the kit. Returns a complete Table
+ * (like signatureGrid/photoGrid), so a no-bundler consumer (eq-field) with
+ * no access to the raw docx Table/TableRow classes can drop it straight
+ * into a section's children alongside dataTable/kvTable, rather than
+ * needing to merge rows into another table.
  */
-export declare function alertRow(opts: AlertRowOptions): TableRow;
+export declare function alertTable(opts: AlertTableOptions): Table;
 /** Two-column label/value table: label cells in ice, values plain. The "kvTable" both Field and Service draw by hand today. */
 export declare function kvTable(kit: TenantBrandKit, pairs: Array<[string, string]>, labelWidthPct?: number): Table;
 export interface SignatureCellOptions {

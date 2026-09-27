@@ -225,19 +225,13 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
   })
 }
 
-export interface AlertRowOptions {
-  /** Cell text for the alert row. */
-  text: string
-  /** Column widths in percent; defaults to equal. Pass the same widths as the surrounding dataTable for a matching row. */
-  widths?: number[]
-  /** Number of cells to span the text across (merged via colSpan). Default 1 (single full-width cell). */
-  columns?: number
+export interface AlertTableOptions {
+  /** One full-width amber row per line — e.g. one row per selected HRCW category. */
+  lines: string[]
 }
 
-function alertCell(text: string, widthPct?: number, columnSpan?: number): TableCell {
+function alertCell(text: string): TableCell {
   return new TableCell({
-    width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : undefined,
-    columnSpan,
     borders,
     shading: { type: ShadingType.CLEAR, fill: ALERT_AMBER, color: 'auto' },
     verticalAlign: VerticalAlign.CENTER,
@@ -246,15 +240,21 @@ function alertCell(text: string, widthPct?: number, columnSpan?: number): TableC
 }
 
 /**
- * A single full-width alert row (fixed amber fill, bold white text) for a
+ * Alert table: one full-width amber row per line, bold white text, for a
  * regulatory/safety flag that must stand out regardless of tenant brand —
- * e.g. a WHS Reg Schedule 3 High-Risk Construction Work line in a Prestart
- * table. Not part of the "white on kit-primary" dataTable/kvTable family:
- * this colour never comes from the kit. Drop it in as its own TableRow
- * alongside dataTable's rows, or as a standalone one-row Table.
+ * e.g. WHS Reg Schedule 3 High-Risk Construction Work categories in a
+ * Prestart. Not part of the "white on kit-primary" dataTable/kvTable
+ * family: this colour never comes from the kit. Returns a complete Table
+ * (like signatureGrid/photoGrid), so a no-bundler consumer (eq-field) with
+ * no access to the raw docx Table/TableRow classes can drop it straight
+ * into a section's children alongside dataTable/kvTable, rather than
+ * needing to merge rows into another table.
  */
-export function alertRow(opts: AlertRowOptions): TableRow {
-  return new TableRow({ cantSplit: true, children: [alertCell(opts.text, opts.widths?.[0], opts.columns)] })
+export function alertTable(opts: AlertTableOptions): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: opts.lines.map((text) => new TableRow({ cantSplit: true, children: [alertCell(text)] })),
+  })
 }
 
 /** Two-column label/value table: label cells in ice, values plain. The "kvTable" both Field and Service draw by hand today. */

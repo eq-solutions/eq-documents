@@ -195,7 +195,7 @@ __export(docx_exports, {
   DOC_STYLE_IDS: () => DOC_STYLE_IDS,
   HAIRLINE: () => HAIRLINE,
   accentOf: () => accentOf,
-  alertRow: () => alertRow,
+  alertTable: () => alertTable,
   body: () => body,
   createDocument: () => createDocument,
   dataTable: () => dataTable,
@@ -470,18 +470,19 @@ function dataTable(kit, opts) {
     ]
   });
 }
-function alertCell(text, widthPct, columnSpan) {
+function alertCell(text) {
   return new TableCell({
-    width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : void 0,
-    columnSpan,
     borders,
     shading: { type: ShadingType.CLEAR, fill: ALERT_AMBER, color: "auto" },
     verticalAlign: VerticalAlign.CENTER,
     children: [new Paragraph({ style: "DocTableCell", children: [new TextRun({ text, bold: true, color: "FFFFFF" })] })]
   });
 }
-function alertRow(opts) {
-  return new TableRow({ cantSplit: true, children: [alertCell(opts.text, opts.widths?.[0], opts.columns)] });
+function alertTable(opts) {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: opts.lines.map((text) => new TableRow({ cantSplit: true, children: [alertCell(text)] }))
+  });
 }
 function kvTable(kit, pairs, labelWidthPct = 30) {
   return new Table({
