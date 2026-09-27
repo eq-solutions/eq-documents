@@ -107,7 +107,12 @@ export function preflight(kit: TenantBrandKit, facts: DocumentFacts): PreflightR
 const HEX_ATTR = /w:(?:color|fill|themeColor)="([0-9A-Fa-f]{6}|auto)"/g
 const FONT_ATTR = /w:(?:ascii|hAnsi|cs|eastAsia)="([^"]+)"/g
 const EFFECT_TAGS = /<w:(?:shadow|glow|reflection|effect|gradFill|outline|emboss|imprint)[\s/>]|<a:gradFill|<a:effectLst>\s*<a:/
-const EXTENT = /<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"/g
+// Whole <w:drawing> blocks, so an extent can be paired with its own docPr — a
+// signature or photo (primitives.ts's imageRun, no altText) carries no
+// docPr name and must never be graded as a logo's aspect ratio.
+const DRAWING_BLOCK = /<w:drawing>[\s\S]*?<\/w:drawing>/g
+const KIT_LOGO_DOC_PR = /<wp:docPr[^>]*\bname="kit-logo"/
+const EXTENT = /<wp:extent\s+cx="(\d+)"\s+cy="(\d+)"/
 
 /** Extract DocumentFacts from a generated .docx. Logo sources are reported by media part name because the URL is gone once embedded. */
 export async function extractFacts(docx: Uint8Array | ArrayBuffer | Blob): Promise<DocumentFacts> {
@@ -124,7 +129,11 @@ export async function extractFacts(docx: Uint8Array | ArrayBuffer | Blob): Promi
     for (const m of xml.matchAll(HEX_ATTR)) usedHex.add(m[1].toUpperCase())
     for (const m of xml.matchAll(FONT_ATTR)) usedFonts.add(m[1])
     if (EFFECT_TAGS.test(xml)) hasEffects = true
-    for (const m of xml.matchAll(EXTENT)) logoPlacements.push({ width: Number(m[1]), height: Number(m[2]) })
+    for (const block of xml.matchAll(DRAWING_BLOCK)) {
+      if (!KIT_LOGO_DOC_PR.test(block[0])) continue // signature/photo — not a logo, skip the ratio check
+      const m = EXTENT.exec(block[0])
+      if (m) logoPlacements.push({ width: Number(m[1]), height: Number(m[2]) })
+    }
     if (/^word\/footer\d*\.xml$/.test(part)) {
       hasFooter = true
       footerText += xml.replace(/<[^>]+>/g, ' ')

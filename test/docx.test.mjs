@@ -106,3 +106,42 @@ test('toBlob works where Blob exists (browser path)', async () => {
   const blob = await docx.toBlob(doc)
   assert.ok(blob.size > 1000)
 })
+
+test('signatureGrid + photoGrid render alongside a logo, and preflight grades only the logo\'s ratio', async () => {
+  const sigTable = docx.signatureGrid(acmeKit, {
+    attendees: [
+      { name: 'A. Person', sig: { bytes: PNG_1x1, mime: 'image/png' } },
+      { name: 'B. Person' }, // unsigned — blank ice cell, no image
+    ],
+  })
+  const photos = docx.photoGrid(acmeKit, {
+    photos: [
+      { bytes: PNG_1x1, mime: 'image/png', caption: 'Before' },
+      { bytes: PNG_1x1, mime: 'image/png', caption: 'After' },
+    ],
+  })
+  const doc = docx.createDocument(acmeKit, {
+    sections: [
+      {
+        children: [
+          docx.masthead(acmeKit, { title: 'Toolbox', logoBytes: PNG_1x1, logoWidthPx: 200 }),
+          docx.h2('Signatures'),
+          sigTable,
+          docx.h2('Photos'),
+          photos,
+        ],
+      },
+    ],
+  })
+  const bytes = await docx.toUint8Array(doc)
+
+  const facts = await preflight.extractFacts(bytes)
+  // 1 logo (200×72.3, kept at the kit's 2000×723 ratio) + 1 signature (144×48) + 2 photos (288×216)
+  // = 4 images placed, but only the logo should ever reach logoPlacements.
+  assert.equal(facts.logoPlacements.length, 1, 'signature/photo images must not be graded as the logo')
+  const [p] = facts.logoPlacements
+  assert.ok(Math.abs(p.width / p.height - 2000 / 723) < 0.02, `logo ratio ${p.width / p.height}`)
+
+  const result = preflight.preflight(acmeKit, { ...facts, logoSources: [acmeKit.logos.light.url] })
+  assert.equal(result.ok, true, result.line)
+})
