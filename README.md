@@ -28,13 +28,13 @@ consume this package on `main` today (see Consuming below).
 | App | Pinned at | Context | Uses |
 |---|---|---|---|
 | eq-shell | v0.1.1 | bundled (Vite) | `src/pages/costBuilderDocx.ts`, `src/pages/staff/conversationDocx.ts` |
-| eq-service | v0.1.1 | bundled (Next) | 7 report kits under `lib/reports/`, plus API routes, app actions, and smoke tests (18 files total) |
-| eq-field | v0.1.1 | vanilla JS, no bundler — vendored `dist/documents.iife.js` (`window.EQDocuments`) | `scripts/docx-builder.js`, `scripts/email-branding.js`; drift-guarded by `.github/workflows/documents-drift.yml` |
+| eq-service | v0.1.3 | bundled (Next) | 7 report kits under `lib/reports/`, plus API routes, app actions, and smoke tests (18 files total) |
+| eq-field | v0.1.3 | vanilla JS, no bundler — vendored `dist/documents.iife.js` (`window.EQDocuments`) | `scripts/docx-builder.js`, `scripts/email-branding.js`; drift-guarded by `.github/workflows/documents-drift.yml` |
 | eq-cards | — | Flutter | consumes the **contract only** (`@eq-solutions/contracts` `brand-kit.schema.json`), no package pin |
 
-All three pinned consumers are one or more minor versions behind — this repo
-has since released v0.1.2 and v0.1.3. Bumping those pins is out of scope for
-this repo; see the drift-prevention proposal in the PR description.
+eq-shell is still on v0.1.1 (bump open: [eq-shell#2147](https://github.com/eq-solutions/eq-shell/pull/2147));
+eq-service and eq-field are current at v0.1.3. Bumping pins is out of scope
+for this repo; see the drift-prevention proposal in the PR description.
 
 Both `dist/` outputs are committed; CI fails if a fresh build differs. The
 IIFE bundles `docx`, `jszip` and the contract; it excludes `exceljs` on
