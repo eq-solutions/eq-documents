@@ -4,7 +4,8 @@ Shared branded-document engine for the EQ suite. One tenant brand kit in,
 consistent Word / Excel documents out, for every app. Design and rationale:
 `eq-context/eq/documents/branded-document-kit-design-2026-09-23.md`.
 
-**Status: v0.1 — stage 1 of the design. No app consumes it yet.**
+**Status: v0.1 — in production use.** eq-shell, eq-service, and eq-field all
+consume this package on `main` today (see Consuming below).
 
 ## What it does
 
@@ -24,11 +25,16 @@ consistent Word / Excel documents out, for every app. Design and rationale:
 
 ## Consuming
 
-| App | Context | Import |
-|---|---|---|
-| eq-shell, eq-service | bundled (Vite / Next) | `"@eq-solutions/documents": "github:eq-solutions/eq-documents#v0.1.0"` then `import { brand, docx } from '@eq-solutions/documents'` |
-| eq-field | vanilla JS, no bundler | vendor `dist/documents.iife.js` to `scripts/vendor/eq-documents/` + a `VERSION` file, load it like `jszip.min.js`, use `window.EQDocuments`. Guard with a `documents-drift.yml` that diffs the vendored file against this repo at the pinned tag (same shape as eq-field's `tokens-drift.yml`). |
-| eq-cards | Flutter | consumes the **contract only** (`@eq-solutions/contracts` `brand-kit.schema.json`). |
+| App | Pinned at | Context | Uses |
+|---|---|---|---|
+| eq-shell | v0.1.1 | bundled (Vite) | `src/pages/costBuilderDocx.ts`, `src/pages/staff/conversationDocx.ts` |
+| eq-service | v0.1.3 | bundled (Next) | 7 report kits under `lib/reports/`, plus API routes, app actions, and smoke tests (18 files total) |
+| eq-field | v0.1.3 | vanilla JS, no bundler — vendored `dist/documents.iife.js` (`window.EQDocuments`) | `scripts/docx-builder.js`, `scripts/email-branding.js`; drift-guarded by `.github/workflows/documents-drift.yml` |
+| eq-cards | — | Flutter | consumes the **contract only** (`@eq-solutions/contracts` `brand-kit.schema.json`), no package pin |
+
+eq-shell is still on v0.1.1 (bump open: [eq-shell#2147](https://github.com/eq-solutions/eq-shell/pull/2147));
+eq-service and eq-field are current at v0.1.3. Bumping pins is out of scope
+for this repo; see the drift-prevention proposal in the PR description.
 
 Both `dist/` outputs are committed; CI fails if a fresh build differs. The
 IIFE bundles `docx`, `jszip` and the contract; it excludes `exceljs` on
