@@ -14,11 +14,13 @@ export interface CreateDocumentOptions {
   title?: string
   creator?: string
   description?: string
+  /** Append page-number fields (`Page N of M`) to the default kit footer. Default false — see `FooterOptions`. Ignored on any section that provides its own `footers`. */
+  pageNumbers?: boolean
 }
 
 /** New Document with the kit's named styles, A4 page setup and legal footer applied to every section that doesn't override them. */
 export function createDocument(kit: TenantBrandKit, opts: CreateDocumentOptions): Document {
-  const kitFooter = footer(kit)
+  const kitFooter = footer(kit, { pageNumbers: opts.pageNumbers })
   return new Document({
     creator: opts.creator ?? kit.tenant.displayName,
     title: opts.title,

@@ -101,6 +101,35 @@ test('preflight grades the header text colour textOn() actually picked, not an a
   assert.equal(palette.pass, true, palette.detail)
 })
 
+test('footer pageNumbers option emits PAGE/NUMPAGES fields and still passes preflight', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    title: 'Prestart Briefing',
+    pageNumbers: true,
+    sections: [{ children: [docx.h1('Details'), docx.body('x')] }],
+  })
+  const bytes = await docx.toUint8Array(doc)
+  const zip = await JSZip.loadAsync(bytes)
+  const footerFiles = Object.keys(zip.files).filter((n) => /^word\/footer\d*\.xml$/.test(n))
+  assert.ok(footerFiles.length > 0, 'a footer part exists')
+  const footerXml = await zip.file(footerFiles[0]).async('string')
+  assert.ok(footerXml.includes('PAGE'), 'footer carries a PAGE field')
+  assert.ok(footerXml.includes('NUMPAGES'), 'footer carries a NUMPAGES field')
+
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(acmeKit, { ...facts, logoSources: [] })
+  assert.equal(result.ok, true, result.line)
+  assert.ok(facts.footerText.includes(acmeKit.tenant.legalName))
+})
+
+test('footer omits page-number fields by default', async () => {
+  const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.body('x')] }] })
+  const bytes = await docx.toUint8Array(doc)
+  const zip = await JSZip.loadAsync(bytes)
+  const footerFiles = Object.keys(zip.files).filter((n) => /^word\/footer\d*\.xml$/.test(n))
+  const footerXml = await zip.file(footerFiles[0]).async('string')
+  assert.ok(!footerXml.includes('NUMPAGES'), 'no page-number field unless opted in')
+})
+
 test('toBlob works where Blob exists (browser path)', async () => {
   const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.body('x')] }] })
   const blob = await docx.toBlob(doc)
