@@ -37,6 +37,36 @@ export const acmeKit = {
 
 export const neutralKit = { ...NEUTRAL_BRAND_KIT, tenant: { id: 'n', slug: 'nobody', legalName: 'Nobody Pty Ltd', displayName: 'Nobody' } }
 
+// --- Guard fixtures: eq-context/eq/documents/auto-applied-layout-design-2026-09-27.md §2 ---
+
+/** Wordmark-shaped logo (very wide, short) — masthead()'s width guard exists for exactly this shape. */
+export const wordmarkKit = {
+  ...acmeKit,
+  tenant: { ...acmeKit.tenant, id: 'wordmark-1', slug: 'wordmark', legalName: 'Wordmark Co Pty Ltd', displayName: 'Wordmark Co' },
+  logos: { light: { url: 'https://example.test/wordmark/logo.png', widthPx: 3000, heightPx: 400, mime: 'image/png' } },
+}
+
+/** Primary is near-white — too pale to read as a header fill. The header-fill intensity guard should fall back to palette.deep. */
+export const paleTenantKit = {
+  ...acmeKit,
+  tenant: { ...acmeKit.tenant, id: 'pale-1', slug: 'pale', legalName: 'Pale Co Pty Ltd', displayName: 'Pale Co' },
+  palette: { primary: 'F5F6F8', deep: '2E75B6', ice: 'EAF1FB', ink: '1B1B24', accent: 'C0504D' },
+}
+
+/** Primary is near-black — reads as an oversized black bar. Same guard, opposite band edge. */
+export const inkTenantKit = {
+  ...acmeKit,
+  tenant: { ...acmeKit.tenant, id: 'ink-1', slug: 'inkco', legalName: 'Ink Co Pty Ltd', displayName: 'Ink Co' },
+  palette: { primary: '050505', deep: '2E75B6', ice: 'EAF1FB', ink: '1B1B24', accent: 'C0504D' },
+}
+
+/** Heading font nobody ships by default — the font-fallback safety net's case. docBody stays a safe font (already gated upstream by DOC_BODY_SAFE_FONTS). */
+export const unusualFontKit = {
+  ...acmeKit,
+  tenant: { ...acmeKit.tenant, id: 'display-font-1', slug: 'display-font', legalName: 'Display Font Co Pty Ltd', displayName: 'Display Font Co' },
+  fonts: { heading: 'Brush Script MT', body: 'Brush Script MT', docBody: 'Calibri' },
+}
+
 /** 1×1 transparent PNG. */
 export const PNG_1x1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',

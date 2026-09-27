@@ -193,6 +193,7 @@ var docx_exports = {};
 __export(docx_exports, {
   ALERT_AMBER: () => ALERT_AMBER,
   DOC_STYLE_IDS: () => DOC_STYLE_IDS,
+  FALLBACK_FONT: () => FALLBACK_FONT,
   HAIRLINE: () => HAIRLINE,
   accentOf: () => accentOf,
   alertTable: () => alertTable,
@@ -215,6 +216,7 @@ __export(docx_exports, {
   signatureGrid: () => signatureGrid,
   small: () => small,
   spacer: () => spacer,
+  tableHeadFill: () => tableHeadFill,
   toBlob: () => toBlob,
   toBuffer: () => toBuffer,
   toUint8Array: () => toUint8Array
@@ -222,6 +224,12 @@ __export(docx_exports, {
 
 // src/docx/styles.ts
 import { AlignmentType, BorderStyle } from "docx";
+import { DOC_BODY_SAFE_FONTS as DOC_BODY_SAFE_FONTS2 } from "@eq-solutions/contracts";
+var SAFE_FONTS = /* @__PURE__ */ new Set([...DOC_BODY_SAFE_FONTS2, "Segoe UI", "Georgia", "Times New Roman", "Roboto"]);
+var FALLBACK_FONT = "Arial";
+function docFont(font) {
+  return SAFE_FONTS.has(font) ? font : { ascii: font, hAnsi: font, cs: FALLBACK_FONT, eastAsia: FALLBACK_FONT };
+}
 var DOC_STYLE_IDS = [
   "DocTitle",
   "DocSubtitle",
@@ -244,8 +252,8 @@ function mutedInk(kit) {
 function docxStyles(kit) {
   const { primary, deep, ink } = kit.palette;
   const accent = accentOf(kit);
-  const heading = kit.fonts.heading;
-  const body2 = kit.fonts.docBody;
+  const heading = docFont(kit.fonts.heading);
+  const body2 = docFont(kit.fonts.docBody);
   return {
     default: {
       document: { run: { font: body2, size: 22, color: ink } }
@@ -375,15 +383,18 @@ function imageType(mime) {
 function imageRun(opts) {
   return new ImageRun({ type: imageType(opts.mime), data: opts.bytes, transformation: { width: opts.widthPx, height: opts.heightPx } });
 }
+var A4_CONTENT_WIDTH_PX = (11906 - 2 * 1134) / 15;
+var MASTHEAD_LOGO_COLUMN_PX = A4_CONTENT_WIDTH_PX * 0.32 * 0.9;
 function masthead(kit, opts) {
   const left = [new Paragraph({ style: "DocTitle", children: [new TextRun(opts.title)] })];
   if (opts.subtitle) left.push(new Paragraph({ style: "DocSubtitle", children: [new TextRun(opts.subtitle)] }));
   const right = [];
   if (opts.logoBytes && kit.logos.light) {
+    const widthPx = Math.min(opts.logoWidthPx ?? 180, MASTHEAD_LOGO_COLUMN_PX);
     right.push(
       new Paragraph({
         alignment: AlignmentType2.RIGHT,
-        children: [logoRun(kit.logos.light, opts.logoBytes, opts.logoWidthPx ?? 180)]
+        children: [logoRun(kit.logos.light, opts.logoBytes, widthPx)]
       })
     );
   }
@@ -438,13 +449,20 @@ function small(text) {
 function spacer() {
   return new Paragraph({ style: "DocBody", children: [new TextRun("")] });
 }
+var HEADER_FILL_LUMINANCE_MIN = 0.05;
+var HEADER_FILL_LUMINANCE_MAX = 0.75;
+function tableHeadFill(kit) {
+  const l = luminance(kit.palette.primary);
+  return l < HEADER_FILL_LUMINANCE_MIN || l > HEADER_FILL_LUMINANCE_MAX ? kit.palette.deep : kit.palette.primary;
+}
 function headCell(kit, text, widthPct) {
+  const fill = tableHeadFill(kit);
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : void 0,
     borders,
-    shading: { type: ShadingType.CLEAR, fill: kit.palette.primary, color: "auto" },
+    shading: { type: ShadingType.CLEAR, fill, color: "auto" },
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableHead", children: [new TextRun({ text, color: textOn(kit.palette.primary, kit.palette.ink) })] })]
+    children: [new Paragraph({ style: "DocTableHead", children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })]
   });
 }
 function bodyCell(kit, text, zebra, widthPct) {
@@ -838,11 +856,12 @@ function preflight(kit, facts) {
   checks.push({ id: "ratio", pass: badRatio.length === 0, detail: badRatio.length ? `logo stretched: ${badRatio.map((p) => `${p.width}\xD7${p.height}`).join(", ")}` : void 0 });
   const allowed = allowedHex(kit);
   const foreign = [...new Set(facts.usedHex.map((h) => h.toUpperCase()))].filter((h) => !allowed.has(h));
-  const headFg = textOn(kit.palette.primary, kit.palette.ink);
-  const headContrast = contrastRatio(headFg, kit.palette.primary);
-  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(", ")}` : headContrast < 4.5 ? `${headFg === "FFFFFF" ? "white" : "ink"} on primary is ${headContrast.toFixed(1)}:1` : void 0;
+  const headFill = tableHeadFill(kit);
+  const headFg = textOn(headFill, kit.palette.ink);
+  const headContrast = contrastRatio(headFg, headFill);
+  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(", ")}` : headContrast < 4.5 ? `${headFg === "FFFFFF" ? "white" : "ink"} on header fill is ${headContrast.toFixed(1)}:1` : void 0;
   checks.push({ id: "palette", pass: foreign.length === 0 && headContrast >= 4.5, detail: paletteDetail });
-  const kitFonts = /* @__PURE__ */ new Set([kit.fonts.heading, kit.fonts.body, kit.fonts.docBody]);
+  const kitFonts = /* @__PURE__ */ new Set([kit.fonts.heading, kit.fonts.body, kit.fonts.docBody, FALLBACK_FONT]);
   const badFonts = [...new Set(facts.usedFonts)].filter((f) => !kitFonts.has(f));
   checks.push({ id: "fonts", pass: badFonts.length === 0, detail: badFonts.length ? `fonts outside kit: ${badFonts.join(", ")}` : void 0 });
   checks.push({ id: "flat", pass: !facts.hasEffects, detail: facts.hasEffects ? "gradient/shadow/effect present" : void 0 });

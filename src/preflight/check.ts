@@ -12,8 +12,8 @@
 import JSZip from 'jszip'
 import type { TenantBrandKit } from '@eq-solutions/contracts'
 import { contrastRatio, textOn } from '../brand/contrast.js'
-import { ALERT_AMBER, HAIRLINE } from '../docx/primitives.js'
-import { mutedInk } from '../docx/styles.js'
+import { ALERT_AMBER, HAIRLINE, tableHeadFill } from '../docx/primitives.js'
+import { FALLBACK_FONT, mutedInk } from '../docx/styles.js'
 
 export type CheckId = 'logo' | 'ratio' | 'palette' | 'fonts' | 'flat' | 'footer'
 
@@ -77,19 +77,22 @@ export function preflight(kit: TenantBrandKit, facts: DocumentFacts): PreflightR
   const badRatio = (facts.logoPlacements ?? []).filter((p) => expected !== undefined && Math.abs(p.width / p.height - expected) / expected > 0.02)
   checks.push({ id: 'ratio', pass: badRatio.length === 0, detail: badRatio.length ? `logo stretched: ${badRatio.map((p) => `${p.width}×${p.height}`).join(', ')}` : undefined })
 
-  // 3 palette — only kit colours, and readable text on primary. headCell()
-  // (primitives.ts) never hardcodes white — it calls textOn(primary, ink) to
-  // pick whichever of white/ink actually contrasts better, so the check must
-  // grade that real choice, not assume white was used regardless of the kit.
+  // 3 palette — only kit colours, and readable text on whichever fill
+  // headCell() (primitives.ts) actually used. tableHeadFill() may fall back
+  // to palette.deep for an out-of-band primary (the header-fill intensity
+  // guard) and headCell() calls textOn(fill, ink) against that same fill, so
+  // the check must grade that real choice, not assume primary/white regardless of the kit.
   const allowed = allowedHex(kit)
   const foreign = [...new Set(facts.usedHex.map((h) => h.toUpperCase()))].filter((h) => !allowed.has(h))
-  const headFg = textOn(kit.palette.primary, kit.palette.ink)
-  const headContrast = contrastRatio(headFg, kit.palette.primary)
-  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(', ')}` : headContrast < 4.5 ? `${headFg === 'FFFFFF' ? 'white' : 'ink'} on primary is ${headContrast.toFixed(1)}:1` : undefined
+  const headFill = tableHeadFill(kit)
+  const headFg = textOn(headFill, kit.palette.ink)
+  const headContrast = contrastRatio(headFg, headFill)
+  const paletteDetail = foreign.length ? `colours outside kit: ${foreign.join(', ')}` : headContrast < 4.5 ? `${headFg === 'FFFFFF' ? 'white' : 'ink'} on header fill is ${headContrast.toFixed(1)}:1` : undefined
   checks.push({ id: 'palette', pass: foreign.length === 0 && headContrast >= 4.5, detail: paletteDetail })
 
-  // 4 fonts — only the kit's three families.
-  const kitFonts = new Set([kit.fonts.heading, kit.fonts.body, kit.fonts.docBody])
+  // 4 fonts — the kit's three families, plus FALLBACK_FONT (the font-fallback
+  // safety net's eastAsia/cs pin for a heading/docBody font outside SAFE_FONTS).
+  const kitFonts = new Set([kit.fonts.heading, kit.fonts.body, kit.fonts.docBody, FALLBACK_FONT])
   const badFonts = [...new Set(facts.usedFonts)].filter((f) => !kitFonts.has(f))
   checks.push({ id: 'fonts', pass: badFonts.length === 0, detail: badFonts.length ? `fonts outside kit: ${badFonts.join(', ')}` : undefined })
 

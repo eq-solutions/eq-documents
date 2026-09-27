@@ -2,16 +2,18 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import JSZip from 'jszip'
 import { docx, preflight } from '../dist/documents.esm.js'
-import { acmeKit, neutralKit, PNG_1x1 } from './fixtures.mjs'
+import { acmeKit, neutralKit, PNG_1x1, wordmarkKit, paleTenantKit, inkTenantKit, unusualFontKit } from './fixtures.mjs'
+
+const EMU_PER_PX = 9525
 
 /** A representative base document: masthead, headings, kv table, data table. */
-async function goldenDoc(kit, withLogo) {
+async function goldenDoc(kit, withLogo, logoWidthPx = 200) {
   const doc = docx.createDocument(kit, {
     title: 'Prestart Briefing',
     sections: [
       {
         children: [
-          docx.masthead(kit, { title: 'Prestart Briefing', subtitle: 'Site: Example Rd', logoBytes: withLogo ? PNG_1x1 : undefined, logoWidthPx: 200 }),
+          docx.masthead(kit, { title: 'Prestart Briefing', subtitle: 'Site: Example Rd', logoBytes: withLogo ? PNG_1x1 : undefined, logoWidthPx }),
           docx.h1('Details'),
           docx.kvTable(kit, [
             ['Date', '23 Sep 2026'],
@@ -175,6 +177,90 @@ test('signatureGrid + photoGrid render alongside a logo, and preflight grades on
   assert.equal(result.ok, true, result.line)
 })
 
+
+test('guard 1 — masthead width guard clamps a wordmark logo to the logo column budget, preserving its aspect ratio', async () => {
+  // Requested at 400px — comfortably wider than the ~185px logo-column
+  // budget a wordmark tenant is likely to ask for (a wide logo looks tiny,
+  // and therefore illegible, at the 180px default).
+  const requestedWidthPx = 400
+  const bytes = await goldenDoc(wordmarkKit, true, requestedWidthPx)
+  const facts = await preflight.extractFacts(bytes)
+  assert.equal(facts.logoPlacements.length, 1)
+  const [p] = facts.logoPlacements
+
+  // Guard fired: the placed width is smaller than the naive/requested one.
+  assert.ok(p.width < requestedWidthPx * EMU_PER_PX, `expected clamp, got ${p.width} EMU (requested ${requestedWidthPx * EMU_PER_PX})`)
+  // Aspect ratio (3000×400) is still preserved — the guard scales, never crops or stretches.
+  // Relative tolerance (not the other tests' absolute 0.02) — a wordmark's 7.5:1 ratio at a
+  // ~185px width rounds height to the nearest px, which moves the ratio more in absolute terms
+  // than the other fixtures' ~2.7:1 logos do at their larger placed sizes.
+  const ratio = p.width / p.height
+  assert.ok(Math.abs(ratio - 3000 / 400) / (3000 / 400) < 0.02, `ratio ${ratio}`)
+
+  const result = preflight.preflight(wordmarkKit, { ...facts, logoSources: [wordmarkKit.logos.light.url] })
+  assert.equal(result.ok, true, result.line)
+})
+
+test('guard 1 — a logo already inside the column budget (the 180px default) is left untouched', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    sections: [{ children: [docx.masthead(acmeKit, { title: 'Prestart Briefing', logoBytes: PNG_1x1 })] }], // logoWidthPx omitted — exercises the 180px default
+  })
+  const bytes = await docx.toUint8Array(doc)
+  const facts = await preflight.extractFacts(bytes)
+  const [p] = facts.logoPlacements
+  assert.equal(p.width, Math.round(180 * EMU_PER_PX), 'default width renders unclamped')
+})
+
+test('guard 2 — header-fill intensity guard falls back to palette.deep for a near-white primary, and stays readable', async () => {
+  const bytes = await goldenDoc(paleTenantKit, false)
+  const zip = await JSZip.loadAsync(bytes)
+  const document = await zip.file('word/document.xml').async('string')
+  assert.ok(document.includes(`w:fill="${paleTenantKit.palette.deep}"`), 'header row fills with palette.deep')
+  assert.ok(!document.includes(`w:fill="${paleTenantKit.palette.primary}"`), 'the near-white primary is never used as a fill')
+
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(paleTenantKit, { ...facts, logoSources: [] })
+  assert.equal(result.ok, true, result.line)
+})
+
+test('guard 2 — header-fill intensity guard falls back to palette.deep for a near-black primary', async () => {
+  const bytes = await goldenDoc(inkTenantKit, false)
+  const zip = await JSZip.loadAsync(bytes)
+  const document = await zip.file('word/document.xml').async('string')
+  assert.ok(document.includes(`w:fill="${inkTenantKit.palette.deep}"`), 'header row fills with palette.deep')
+  assert.ok(!document.includes(`w:fill="${inkTenantKit.palette.primary}"`), 'the near-black primary is never used as a fill')
+
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(inkTenantKit, { ...facts, logoSources: [] })
+  assert.equal(result.ok, true, result.line)
+})
+
+test('guard 2 — a normal mid-tone primary (acme) still fills the header directly, unaffected by the guard', async () => {
+  assert.equal(docx.tableHeadFill(acmeKit), acmeKit.palette.primary)
+})
+
+test('guard 3 — font fallback safety net pins eastAsia/cs to Arial for an unrecognised heading font, without replacing it', async () => {
+  const bytes = await goldenDoc(unusualFontKit, false)
+  const zip = await JSZip.loadAsync(bytes)
+  const styles = await zip.file('word/styles.xml').async('string')
+  assert.ok(styles.includes('w:ascii="Brush Script MT"'), 'the tenant\'s requested font is still used, not rejected')
+  assert.ok(styles.includes('w:eastAsia="Arial"') && styles.includes('w:cs="Arial"'), 'unsupported font gets an Arial safety net on eastAsia/cs')
+
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(unusualFontKit, { ...facts, logoSources: [] })
+  assert.equal(result.ok, true, result.line)
+})
+
+test('guard 3 — a safe font (acme\'s Roboto/Calibri) never gets the Arial fallback substituted in', async () => {
+  const bytes = await goldenDoc(acmeKit, false)
+  const zip = await JSZip.loadAsync(bytes)
+  const styles = await zip.file('word/styles.xml').async('string')
+  // docx's createRunFonts always expands a plain string into all four rFonts
+  // faces (ascii/hAnsi/eastAsia/cs) — a safe font shows the SAME name on all
+  // of them, never a divergent Arial fallback the way unusualFontKit does.
+  assert.ok(!styles.includes('w:eastAsia="Arial"'), 'no Arial fallback substituted for a font already on the safe list')
+  assert.ok(styles.includes('w:eastAsia="Roboto"'), 'heading font faces all agree — no fallback split')
+})
 
 test('alertTable keeps its fixed amber regardless of tenant kit, and preflight allows it', async () => {
   const alertTable = docx.alertTable({ lines: ['HIGH-RISK CONSTRUCTION WORK — WHS Reg Sch 3'] })
