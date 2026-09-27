@@ -29,6 +29,15 @@ import { textOn } from '../brand/contrast.js'
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export const HAIRLINE = 'CCCCCC'
 
+/**
+ * Fixed regulatory-alert amber, independent of tenant palette. Deliberately
+ * NOT kit-driven: an alert (e.g. a WHS Reg Schedule 3 High-Risk Construction
+ * Work flag) needs to look the same for every tenant and never blend into
+ * that tenant's own branded fields — the exact reason eq-field hand-coded
+ * this colour in v3.5.576 before this kit existed. Same treatment as HAIRLINE.
+ */
+export const ALERT_AMBER = 'D97706'
+
 const hairline: IBorderOptions = { style: BorderStyle.SINGLE, size: 4, color: HAIRLINE }
 const borders = { top: hairline, bottom: hairline, left: hairline, right: hairline }
 const noBorder: IBorderOptions = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
@@ -213,6 +222,38 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
           new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci])) }),
       ),
     ],
+  })
+}
+
+export interface AlertTableOptions {
+  /** One full-width amber row per line — e.g. one row per selected HRCW category. */
+  lines: string[]
+}
+
+function alertCell(text: string): TableCell {
+  return new TableCell({
+    borders,
+    shading: { type: ShadingType.CLEAR, fill: ALERT_AMBER, color: 'auto' },
+    verticalAlign: VerticalAlign.CENTER,
+    children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun({ text, bold: true, color: 'FFFFFF' })] })],
+  })
+}
+
+/**
+ * Alert table: one full-width amber row per line, bold white text, for a
+ * regulatory/safety flag that must stand out regardless of tenant brand —
+ * e.g. WHS Reg Schedule 3 High-Risk Construction Work categories in a
+ * Prestart. Not part of the "white on kit-primary" dataTable/kvTable
+ * family: this colour never comes from the kit. Returns a complete Table
+ * (like signatureGrid/photoGrid), so a no-bundler consumer (eq-field) with
+ * no access to the raw docx Table/TableRow classes can drop it straight
+ * into a section's children alongside dataTable/kvTable, rather than
+ * needing to merge rows into another table.
+ */
+export function alertTable(opts: AlertTableOptions): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    rows: opts.lines.map((text) => new TableRow({ cantSplit: true, children: [alertCell(text)] })),
   })
 }
 

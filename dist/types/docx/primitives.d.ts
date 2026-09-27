@@ -10,6 +10,14 @@ import { Footer, ImageRun, Paragraph, Table, TableCell, type ISectionOptions } f
 import type { LogoAsset, TenantBrandKit } from '@eq-solutions/contracts';
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export declare const HAIRLINE = "CCCCCC";
+/**
+ * Fixed regulatory-alert amber, independent of tenant palette. Deliberately
+ * NOT kit-driven: an alert (e.g. a WHS Reg Schedule 3 High-Risk Construction
+ * Work flag) needs to look the same for every tenant and never blend into
+ * that tenant's own branded fields — the exact reason eq-field hand-coded
+ * this colour in v3.5.576 before this kit existed. Same treatment as HAIRLINE.
+ */
+export declare const ALERT_AMBER = "D97706";
 /** A4 portrait with 2 cm margins. Pass as `properties` on a section. */
 export declare function pageA4(): NonNullable<ISectionOptions['properties']>;
 /** Emit a logo run at a given display width, deriving height from the STORED aspect ratio. Never re-measures. */
@@ -65,6 +73,22 @@ export interface DataTableOptions {
 }
 /** Header row in primary fill with white text, zebra body rows in ice, hairline borders. The "white on blue" rule both briefs share. */
 export declare function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table;
+export interface AlertTableOptions {
+    /** One full-width amber row per line — e.g. one row per selected HRCW category. */
+    lines: string[];
+}
+/**
+ * Alert table: one full-width amber row per line, bold white text, for a
+ * regulatory/safety flag that must stand out regardless of tenant brand —
+ * e.g. WHS Reg Schedule 3 High-Risk Construction Work categories in a
+ * Prestart. Not part of the "white on kit-primary" dataTable/kvTable
+ * family: this colour never comes from the kit. Returns a complete Table
+ * (like signatureGrid/photoGrid), so a no-bundler consumer (eq-field) with
+ * no access to the raw docx Table/TableRow classes can drop it straight
+ * into a section's children alongside dataTable/kvTable, rather than
+ * needing to merge rows into another table.
+ */
+export declare function alertTable(opts: AlertTableOptions): Table;
 /** Two-column label/value table: label cells in ice, values plain. The "kvTable" both Field and Service draw by hand today. */
 export declare function kvTable(kit: TenantBrandKit, pairs: Array<[string, string]>, labelWidthPct?: number): Table;
 export interface SignatureCellOptions {
