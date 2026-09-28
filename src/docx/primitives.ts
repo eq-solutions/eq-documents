@@ -24,7 +24,7 @@ import {
   type ISectionOptions,
 } from 'docx'
 import type { LogoAsset, TenantBrandKit } from '@eq-solutions/contracts'
-import { textOn } from '../brand/contrast.js'
+import { luminance, textOn } from '../brand/contrast.js'
 
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export const HAIRLINE = 'CCCCCC'
@@ -97,9 +97,27 @@ export interface MastheadOptions {
   subtitle?: string
   /** Bytes of kit.logos.light, fetched by the caller. Omit for no logo (neutral kits). */
   logoBytes?: Uint8Array | ArrayBuffer | Buffer
-  /** Display width of the logo in px. Default 180. */
+  /** Display width of the logo in px. Default 180. Clamped to the logo column's own budget — see MASTHEAD_LOGO_COLUMN_PX. */
   logoWidthPx?: number
 }
+
+/**
+ * A4 content width (pageA4()'s 11906-twip page minus its 1134-twip margins
+ * each side), in px at 96 dpi (1440 twips/in ÷ 96 px/in = 15 twips/px).
+ * Duplicated as a constant rather than reading pageA4() because its return
+ * type allows string page-measure units that don't support arithmetic —
+ * keep this in sync if pageA4()'s page size or margins ever change.
+ */
+const A4_CONTENT_WIDTH_PX = (11906 - 2 * 1134) / 15
+
+/**
+ * Available width of masthead()'s 32%-wide logo cell, in px, with a 10%
+ * allowance for the cell's own default padding. docx doesn't shrink an
+ * ImageRun's fixed EMU size to fit its cell — a requested logo width bigger
+ * than this budget overflows into (or clips against) the title column
+ * instead of erroring, so masthead() clamps to it below.
+ */
+const MASTHEAD_LOGO_COLUMN_PX = A4_CONTENT_WIDTH_PX * 0.32 * 0.9
 
 /**
  * Masthead: title + subtitle on the left, logo on the right, in a borderless
@@ -110,10 +128,11 @@ export function masthead(kit: TenantBrandKit, opts: MastheadOptions): Table {
   if (opts.subtitle) left.push(new Paragraph({ style: 'DocSubtitle', children: [new TextRun(opts.subtitle)] }))
   const right: Paragraph[] = []
   if (opts.logoBytes && kit.logos.light) {
+    const widthPx = Math.min(opts.logoWidthPx ?? 180, MASTHEAD_LOGO_COLUMN_PX)
     right.push(
       new Paragraph({
         alignment: AlignmentType.RIGHT,
-        children: [logoRun(kit.logos.light, opts.logoBytes, opts.logoWidthPx ?? 180)],
+        children: [logoRun(kit.logos.light, opts.logoBytes, widthPx)],
       }),
     )
   }
@@ -179,13 +198,30 @@ export function spacer(): Paragraph {
   return new Paragraph({ style: 'DocBody', children: [new TextRun('')] })
 }
 
+/** Below this, a primary is too pale to read as a filled header band. Above this, it reads as an oversized black bar. */
+const HEADER_FILL_LUMINANCE_MIN = 0.05
+const HEADER_FILL_LUMINANCE_MAX = 0.75
+
+/**
+ * Header fill colour for dataTable()'s header row: the kit's primary, unless
+ * its luminance falls outside a legible "fill" band — then falls back to
+ * palette.deep, which every kit already carries and which the rest of the
+ * table family (footer's top rule, DocH2, DocSubtitle) already treats as a
+ * legitimate brand colour.
+ */
+export function tableHeadFill(kit: TenantBrandKit): string {
+  const l = luminance(kit.palette.primary)
+  return l < HEADER_FILL_LUMINANCE_MIN || l > HEADER_FILL_LUMINANCE_MAX ? kit.palette.deep : kit.palette.primary
+}
+
 function headCell(kit: TenantBrandKit, text: string, widthPct?: number): TableCell {
+  const fill = tableHeadFill(kit)
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : undefined,
     borders,
-    shading: { type: ShadingType.CLEAR, fill: kit.palette.primary, color: 'auto' },
+    shading: { type: ShadingType.CLEAR, fill, color: 'auto' },
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableHead', children: [new TextRun({ text, color: textOn(kit.palette.primary, kit.palette.ink) })] })],
+    children: [new Paragraph({ style: 'DocTableHead', children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })],
   })
 }
 

@@ -42,7 +42,7 @@ export interface MastheadOptions {
     subtitle?: string;
     /** Bytes of kit.logos.light, fetched by the caller. Omit for no logo (neutral kits). */
     logoBytes?: Uint8Array | ArrayBuffer | Buffer;
-    /** Display width of the logo in px. Default 180. */
+    /** Display width of the logo in px. Default 180. Clamped to the logo column's own budget — see MASTHEAD_LOGO_COLUMN_PX. */
     logoWidthPx?: number;
 }
 /**
@@ -63,6 +63,14 @@ export declare function h2(text: string): Paragraph;
 export declare function body(text: string): Paragraph;
 export declare function small(text: string): Paragraph;
 export declare function spacer(): Paragraph;
+/**
+ * Header fill colour for dataTable()'s header row: the kit's primary, unless
+ * its luminance falls outside a legible "fill" band — then falls back to
+ * palette.deep, which every kit already carries and which the rest of the
+ * table family (footer's top rule, DocH2, DocSubtitle) already treats as a
+ * legitimate brand colour.
+ */
+export declare function tableHeadFill(kit: TenantBrandKit): string;
 export interface DataTableOptions {
     head: string[];
     rows: string[][];

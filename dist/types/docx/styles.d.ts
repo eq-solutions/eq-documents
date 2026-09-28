@@ -11,6 +11,8 @@
  */
 import type { IStylesOptions } from 'docx';
 import type { TenantBrandKit } from '@eq-solutions/contracts';
+/** Word has no font-family fallback list — `w:rFonts` names exactly one face per script range (ascii/hAnsi/eastAsia/cs), so an unrecognised font can't degrade to a chain the way a CSS font-family stack would. */
+export declare const FALLBACK_FONT = "Arial";
 export declare const DOC_STYLE_IDS: readonly ["DocTitle", "DocSubtitle", "DocH1", "DocH2", "DocBody", "DocSmall", "DocTableHead", "DocTableCell", "DocFooter"];
 export type DocStyleId = (typeof DOC_STYLE_IDS)[number];
 /** Accent colour: explicit accent role, else deep. */

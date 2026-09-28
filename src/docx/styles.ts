@@ -11,7 +11,33 @@
  */
 import type { IStylesOptions } from 'docx'
 import { AlignmentType, BorderStyle } from 'docx'
+import { DOC_BODY_SAFE_FONTS } from '@eq-solutions/contracts'
 import type { TenantBrandKit } from '@eq-solutions/contracts'
+
+/**
+ * Fonts every Windows/Office install ships with, plus DOC_BODY_SAFE_FONTS
+ * (the same allow-list @eq-solutions/contracts already validates
+ * `fonts.docBody` against) and the fonts EQ/SKS tenants already use today.
+ * `fonts.heading` carries no such validation upstream — this is the actual
+ * gap the guard below closes.
+ */
+const SAFE_FONTS = new Set<string>([...DOC_BODY_SAFE_FONTS, 'Segoe UI', 'Georgia', 'Times New Roman', 'Roboto'])
+
+/** Word has no font-family fallback list — `w:rFonts` names exactly one face per script range (ascii/hAnsi/eastAsia/cs), so an unrecognised font can't degrade to a chain the way a CSS font-family stack would. */
+export const FALLBACK_FONT = 'Arial'
+
+/**
+ * Font fallback safety net: a font on SAFE_FONTS renders exactly as
+ * requested (unchanged — no behaviour change for a tenant already using a
+ * known-safe font). Anything else still renders as the tenant asked for
+ * ascii/hAnsi text — never silently replaced — but pins the eastAsia/cs
+ * faces to FALLBACK_FONT, the one part of rFonts that can carry a different,
+ * guaranteed-present name, instead of leaving those ranges to whatever
+ * Word's own per-install substitution table decides.
+ */
+function docFont(font: string): string | { ascii: string; hAnsi: string; cs: string; eastAsia: string } {
+  return SAFE_FONTS.has(font) ? font : { ascii: font, hAnsi: font, cs: FALLBACK_FONT, eastAsia: FALLBACK_FONT }
+}
 
 export const DOC_STYLE_IDS = [
   'DocTitle',
@@ -42,8 +68,8 @@ export function mutedInk(kit: TenantBrandKit): string {
 export function docxStyles(kit: TenantBrandKit): IStylesOptions {
   const { primary, deep, ink } = kit.palette
   const accent = accentOf(kit)
-  const heading = kit.fonts.heading
-  const body = kit.fonts.docBody
+  const heading = docFont(kit.fonts.heading)
+  const body = docFont(kit.fonts.docBody)
 
   return {
     default: {
