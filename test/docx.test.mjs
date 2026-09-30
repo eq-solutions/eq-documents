@@ -283,3 +283,17 @@ test('alertTable keeps its fixed amber regardless of tenant kit, and preflight a
   assert.ok(neutralFacts.usedHex.map((h) => h.toUpperCase()).includes(docx.ALERT_AMBER), 'amber is fixed, not kit.palette-derived')
   assert.equal(preflight.preflight(neutralKit, { ...neutralFacts, logoSources: [] }).ok, true)
 })
+
+test('dataTable: a { text, bold } cell renders bold; plain-string cells are unchanged', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    title: 'Audit',
+    sections: [{ children: [docx.dataTable(acmeKit, { head: ['Item', 'Result'], rows: [['Lead in date', 'Yes'], ['Frayed lead', { text: 'No', bold: true }]] })] }],
+  })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  const runs = [...xml.matchAll(/<w:r>(?:(?!<\/w:r>).)*<\/w:r>/gs)].map((m) => m[0])
+  const runOf = (t) => runs.find((r) => r.includes(`>${t}</w:t>`))
+  assert.ok(/<w:b\/>|<w:b w:val="true"\/>/.test(runOf('No')), 'the "No" run is bold')
+  assert.ok(!/<w:b\/>|<w:b w:val="true"\/>/.test(runOf('Yes')), 'a plain-string cell is not bold')
+  assert.ok(!/<w:b\/>|<w:b w:val="true"\/>/.test(runOf('Frayed lead')), 'sibling text cell is not bold')
+})

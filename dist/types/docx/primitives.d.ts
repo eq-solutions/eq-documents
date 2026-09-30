@@ -71,9 +71,18 @@ export declare function spacer(): Paragraph;
  * legitimate brand colour.
  */
 export declare function tableHeadFill(kit: TenantBrandKit): string;
+/**
+ * A body cell: plain text, or `{ text, bold }` to emphasise it (e.g. a failed audit
+ * answer). Bold only — colour stays with the kit so a tenant's brand and the
+ * preflight palette check are never bypassed by a per-cell colour.
+ */
+export type DataTableCell = string | {
+    text: string;
+    bold?: boolean;
+};
 export interface DataTableOptions {
     head: string[];
-    rows: string[][];
+    rows: DataTableCell[][];
     /** Column widths in percent; defaults to equal. */
     widths?: number[];
     /** Zebra-stripe body rows with kit.palette.ice. Default true. */
