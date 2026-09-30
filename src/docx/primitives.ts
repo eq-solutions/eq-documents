@@ -225,19 +225,28 @@ function headCell(kit: TenantBrandKit, text: string, widthPct?: number): TableCe
   })
 }
 
-function bodyCell(kit: TenantBrandKit, text: string, zebra: boolean, widthPct?: number): TableCell {
+function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widthPct?: number): TableCell {
+  const text = typeof cell === 'string' ? cell : cell.text
+  const bold = typeof cell === 'string' ? false : cell.bold === true
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : undefined,
     borders,
     shading: zebra ? { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' } : undefined,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun(text)] })],
+    children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun(bold ? { text, bold: true } : text)] })],
   })
 }
 
+/**
+ * A body cell: plain text, or `{ text, bold }` to emphasise it (e.g. a failed audit
+ * answer). Bold only — colour stays with the kit so a tenant's brand and the
+ * preflight palette check are never bypassed by a per-cell colour.
+ */
+export type DataTableCell = string | { text: string; bold?: boolean }
+
 export interface DataTableOptions {
   head: string[]
-  rows: string[][]
+  rows: DataTableCell[][]
   /** Column widths in percent; defaults to equal. */
   widths?: number[]
   /** Zebra-stripe body rows with kit.palette.ice. Default true. */

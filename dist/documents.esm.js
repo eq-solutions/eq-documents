@@ -465,13 +465,15 @@ function headCell(kit, text, widthPct) {
     children: [new Paragraph({ style: "DocTableHead", children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })]
   });
 }
-function bodyCell(kit, text, zebra, widthPct) {
+function bodyCell(kit, cell, zebra, widthPct) {
+  const text = typeof cell === "string" ? cell : cell.text;
+  const bold = typeof cell === "string" ? false : cell.bold === true;
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : void 0,
     borders,
     shading: zebra ? { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" } : void 0,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableCell", children: [new TextRun(text)] })]
+    children: [new Paragraph({ style: "DocTableCell", children: [new TextRun(bold ? { text, bold: true } : text)] })]
   });
 }
 function dataTable(kit, opts) {
