@@ -54,6 +54,7 @@ export function allowedHex(kit: TenantBrandKit): Set<string> {
     kit.palette.deep,
     kit.palette.ice,
     softFill(kit),
+    tableHeadFill(kit),
     kit.palette.ink,
     'FFFFFF',
     HAIRLINE,

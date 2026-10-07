@@ -493,7 +493,18 @@ var HEADER_FILL_LUMINANCE_MIN = 0.05;
 var HEADER_FILL_LUMINANCE_MAX = 0.75;
 function tableHeadFill(kit) {
   const l = luminance(kit.palette.primary);
-  return l < HEADER_FILL_LUMINANCE_MIN || l > HEADER_FILL_LUMINANCE_MAX ? kit.palette.deep : kit.palette.primary;
+  const base = l < HEADER_FILL_LUMINANCE_MIN || l > HEADER_FILL_LUMINANCE_MAX ? kit.palette.deep : kit.palette.primary;
+  return readableFill(base, kit.palette.ink);
+}
+function readableFill(fill, ink) {
+  if (contrastRatio(textOn(fill, ink), fill) >= 4.5) return fill;
+  const [r, g, b] = hexToRgb(fill);
+  for (let step = 1; step <= 40; step++) {
+    const k = 1 - step * 0.03;
+    const c = [r, g, b].map((v) => Math.round(v * k).toString(16).padStart(2, "0")).join("").toUpperCase();
+    if (contrastRatio("FFFFFF", c) >= 4.5) return c;
+  }
+  return fill;
 }
 function headCell(kit, text, widthPct) {
   const fill = tableHeadFill(kit);
@@ -991,6 +1002,7 @@ function allowedHex(kit) {
     kit.palette.deep,
     kit.palette.ice,
     softFill(kit),
+    tableHeadFill(kit),
     kit.palette.ink,
     "FFFFFF",
     HAIRLINE,

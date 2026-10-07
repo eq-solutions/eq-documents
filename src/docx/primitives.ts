@@ -26,7 +26,7 @@ import {
   type ISectionOptions,
 } from 'docx'
 import type { LogoAsset, TenantBrandKit } from '@eq-solutions/contracts'
-import { luminance, textOn } from '../brand/contrast.js'
+import { contrastRatio, hexToRgb, luminance, textOn } from '../brand/contrast.js'
 import { softFill } from './styles.js'
 
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
@@ -243,7 +243,25 @@ const HEADER_FILL_LUMINANCE_MAX = 0.75
  */
 export function tableHeadFill(kit: TenantBrandKit): string {
   const l = luminance(kit.palette.primary)
-  return l < HEADER_FILL_LUMINANCE_MIN || l > HEADER_FILL_LUMINANCE_MAX ? kit.palette.deep : kit.palette.primary
+  const base = l < HEADER_FILL_LUMINANCE_MIN || l > HEADER_FILL_LUMINANCE_MAX ? kit.palette.deep : kit.palette.primary
+  return readableFill(base, kit.palette.ink)
+}
+
+/**
+ * A mid-tone brand colour (SKS's purple is one) can sit where neither white nor
+ * the kit's ink reaches WCAG AA (4.5:1) as header text. Darken it towards black,
+ * keeping the hue, in 3 % steps until white text clears AA. A fill that already
+ * has a readable text colour is returned untouched, so most tenants are unchanged.
+ */
+function readableFill(fill: string, ink: string): string {
+  if (contrastRatio(textOn(fill, ink), fill) >= 4.5) return fill
+  const [r, g, b] = hexToRgb(fill)
+  for (let step = 1; step <= 40; step++) {
+    const k = 1 - step * 0.03
+    const c = [r, g, b].map((v) => Math.round(v * k).toString(16).padStart(2, '0')).join('').toUpperCase()
+    if (contrastRatio('FFFFFF', c) >= 4.5) return c
+  }
+  return fill
 }
 
 function headCell(kit: TenantBrandKit, text: string, widthPct?: number): TableCell {
