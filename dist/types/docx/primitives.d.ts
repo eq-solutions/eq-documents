@@ -18,6 +18,23 @@ export declare const HAIRLINE = "CCCCCC";
  * this colour in v3.5.576 before this kit existed. Same treatment as HAIRLINE.
  */
 export declare const ALERT_AMBER = "D97706";
+/**
+ * Fixed pass / fail / warn colours, independent of tenant palette — same
+ * reasoning as ALERT_AMBER: a result must read the same for every tenant.
+ * TINT = light cell fill (the table's own ink text stays legible on it);
+ * COLOR = solid, for large figures (kpiRow values).
+ */
+export declare const STATUS_TINT: {
+    readonly pass: "DCFCE7";
+    readonly fail: "FEE2E2";
+    readonly warn: "FEF3C7";
+};
+export declare const STATUS_COLOR: {
+    readonly pass: "16A34A";
+    readonly fail: "DC2626";
+    readonly warn: "D97706";
+};
+export type StatusKind = keyof typeof STATUS_TINT;
 /** A4 portrait with 2 cm margins. Pass as `properties` on a section. */
 export declare function pageA4(): NonNullable<ISectionOptions['properties']>;
 /** Emit a logo run at a given display width, deriving height from the STORED aspect ratio. Never re-measures. */
@@ -58,8 +75,14 @@ export interface FooterOptions {
 }
 /** Page footer with the legal line in DocFooter style, a primary-colour top rule, and optional page numbering. */
 export declare function footer(kit: TenantBrandKit, opts?: FooterOptions): Footer;
-export declare function h1(text: string): Paragraph;
-export declare function h2(text: string): Paragraph;
+export interface HeadingOptions {
+    /** Start the heading on a new page (e.g. one section per asset). */
+    pageBreakBefore?: boolean;
+    /** Bookmark name so `toc()` (or any internal link) can jump here. */
+    bookmark?: string;
+}
+export declare function h1(text: string, opts?: HeadingOptions): Paragraph;
+export declare function h2(text: string, opts?: HeadingOptions): Paragraph;
 export declare function body(text: string): Paragraph;
 export declare function small(text: string): Paragraph;
 export declare function spacer(): Paragraph;
@@ -72,13 +95,16 @@ export declare function spacer(): Paragraph;
  */
 export declare function tableHeadFill(kit: TenantBrandKit): string;
 /**
- * A body cell: plain text, or `{ text, bold }` to emphasise it (e.g. a failed audit
- * answer). Bold only — colour stays with the kit so a tenant's brand and the
- * preflight palette check are never bypassed by a per-cell colour.
+ * A body cell: plain text, `{ text, bold }` to emphasise it (e.g. a failed audit
+ * answer), or `{ text, status }` to tint a result cell pass / fail / warn. Colour
+ * never comes from the caller: `status` maps to the fixed STATUS_TINT set (the
+ * same exception class as ALERT_AMBER, allow-listed in preflight), so a tenant's
+ * brand and the palette check are never bypassed by an arbitrary per-cell colour.
  */
 export type DataTableCell = string | {
     text: string;
     bold?: boolean;
+    status?: StatusKind;
 };
 export interface DataTableOptions {
     head: string[];

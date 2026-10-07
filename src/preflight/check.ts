@@ -12,7 +12,7 @@
 import JSZip from 'jszip'
 import type { TenantBrandKit } from '@eq-solutions/contracts'
 import { contrastRatio, textOn } from '../brand/contrast.js'
-import { ALERT_AMBER, HAIRLINE, tableHeadFill } from '../docx/primitives.js'
+import { ALERT_AMBER, HAIRLINE, STATUS_COLOR, STATUS_TINT, tableHeadFill } from '../docx/primitives.js'
 import { FALLBACK_FONT, mutedInk } from '../docx/styles.js'
 
 export type CheckId = 'logo' | 'ratio' | 'palette' | 'fonts' | 'flat' | 'footer'
@@ -57,6 +57,8 @@ export function allowedHex(kit: TenantBrandKit): Set<string> {
     'FFFFFF',
     HAIRLINE,
     ALERT_AMBER,
+    ...Object.values(STATUS_TINT),
+    ...Object.values(STATUS_COLOR),
     mutedInk(kit),
     'AUTO',
   ])

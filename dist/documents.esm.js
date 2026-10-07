@@ -76,15 +76,15 @@ function normalisePalette(raw) {
 }
 function normaliseFonts(raw) {
   const o = asRecord(raw);
-  const heading = asString(o.heading);
+  const heading2 = asString(o.heading);
   const body2 = asString(o.body);
   const docBodyRaw = asString(o.docBody);
   const docBody = docBodyRaw && DOC_BODY_SAFE_FONTS.includes(docBodyRaw) ? docBodyRaw : void 0;
-  const fromTenant = Boolean(heading && body2 && docBody);
+  const fromTenant = Boolean(heading2 && body2 && docBody);
   return {
     fonts: {
-      heading: heading ?? NEUTRAL_BRAND_KIT.fonts.heading,
-      body: body2 ?? heading ?? NEUTRAL_BRAND_KIT.fonts.body,
+      heading: heading2 ?? NEUTRAL_BRAND_KIT.fonts.heading,
+      body: body2 ?? heading2 ?? NEUTRAL_BRAND_KIT.fonts.body,
       docBody: docBody ?? NEUTRAL_BRAND_KIT.fonts.docBody
     },
     fromTenant
@@ -195,6 +195,8 @@ __export(docx_exports, {
   DOC_STYLE_IDS: () => DOC_STYLE_IDS,
   FALLBACK_FONT: () => FALLBACK_FONT,
   HAIRLINE: () => HAIRLINE,
+  STATUS_COLOR: () => STATUS_COLOR,
+  STATUS_TINT: () => STATUS_TINT,
   accentOf: () => accentOf,
   alertTable: () => alertTable,
   body: () => body,
@@ -206,11 +208,13 @@ __export(docx_exports, {
   h1: () => h1,
   h2: () => h2,
   imageRun: () => imageRun,
+  kpiRow: () => kpiRow,
   kvTable: () => kvTable,
   logoRun: () => logoRun,
   masthead: () => masthead,
   mutedInk: () => mutedInk,
   pageA4: () => pageA4,
+  pageHeader: () => pageHeader,
   photoGrid: () => photoGrid,
   signatureCell: () => signatureCell,
   signatureGrid: () => signatureGrid,
@@ -219,7 +223,8 @@ __export(docx_exports, {
   tableHeadFill: () => tableHeadFill,
   toBlob: () => toBlob,
   toBuffer: () => toBuffer,
-  toUint8Array: () => toUint8Array
+  toUint8Array: () => toUint8Array,
+  toc: () => toc
 });
 
 // src/docx/styles.ts
@@ -252,7 +257,7 @@ function mutedInk(kit) {
 function docxStyles(kit) {
   const { primary, deep, ink } = kit.palette;
   const accent = accentOf(kit);
-  const heading = docFont(kit.fonts.heading);
+  const heading2 = docFont(kit.fonts.heading);
   const body2 = docFont(kit.fonts.docBody);
   return {
     default: {
@@ -265,7 +270,7 @@ function docxStyles(kit) {
         basedOn: "Normal",
         next: "DocBody",
         quickFormat: true,
-        run: { font: heading, size: 36, bold: true, color: primary },
+        run: { font: heading2, size: 36, bold: true, color: primary },
         paragraph: { spacing: { before: 0, after: 120 } }
       },
       {
@@ -274,7 +279,7 @@ function docxStyles(kit) {
         basedOn: "Normal",
         next: "DocBody",
         quickFormat: true,
-        run: { font: heading, size: 22, color: deep },
+        run: { font: heading2, size: 22, color: deep },
         paragraph: {
           spacing: { before: 0, after: 240 },
           border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: accent, space: 4 } }
@@ -286,7 +291,7 @@ function docxStyles(kit) {
         basedOn: "Normal",
         next: "DocBody",
         quickFormat: true,
-        run: { font: heading, size: 28, bold: true, color: primary },
+        run: { font: heading2, size: 28, bold: true, color: primary },
         paragraph: { spacing: { before: 320, after: 120 }, keepNext: true, outlineLevel: 0 }
       },
       {
@@ -295,7 +300,7 @@ function docxStyles(kit) {
         basedOn: "Normal",
         next: "DocBody",
         quickFormat: true,
-        run: { font: heading, size: 24, bold: true, color: deep },
+        run: { font: heading2, size: 24, bold: true, color: deep },
         paragraph: { spacing: { before: 240, after: 80 }, keepNext: true, outlineLevel: 1 }
       },
       {
@@ -342,6 +347,7 @@ function docxStyles(kit) {
 import {
   AlignmentType as AlignmentType2,
   BorderStyle as BorderStyle2,
+  Bookmark,
   Footer,
   ImageRun,
   PageNumber,
@@ -356,6 +362,8 @@ import {
 } from "docx";
 var HAIRLINE = "CCCCCC";
 var ALERT_AMBER = "D97706";
+var STATUS_TINT = { pass: "DCFCE7", fail: "FEE2E2", warn: "FEF3C7" };
+var STATUS_COLOR = { pass: "16A34A", fail: "DC2626", warn: ALERT_AMBER };
 var hairline = { style: BorderStyle2.SINGLE, size: 4, color: HAIRLINE };
 var borders = { top: hairline, bottom: hairline, left: hairline, right: hairline };
 var noBorder = { style: BorderStyle2.NONE, size: 0, color: "FFFFFF" };
@@ -434,11 +442,19 @@ function footer(kit, opts = {}) {
     ]
   });
 }
-function h1(text) {
-  return new Paragraph({ style: "DocH1", children: [new TextRun(text)] });
+function heading(style, text, opts = {}) {
+  const run = new TextRun(text);
+  return new Paragraph({
+    style,
+    pageBreakBefore: opts.pageBreakBefore,
+    children: opts.bookmark ? [new Bookmark({ id: opts.bookmark, children: [run] })] : [run]
+  });
 }
-function h2(text) {
-  return new Paragraph({ style: "DocH2", children: [new TextRun(text)] });
+function h1(text, opts) {
+  return heading("DocH1", text, opts);
+}
+function h2(text, opts) {
+  return heading("DocH2", text, opts);
 }
 function body(text) {
   return new Paragraph({ style: "DocBody", children: [new TextRun(text)] });
@@ -467,11 +483,13 @@ function headCell(kit, text, widthPct) {
 }
 function bodyCell(kit, cell, zebra, widthPct) {
   const text = typeof cell === "string" ? cell : cell.text;
-  const bold = typeof cell === "string" ? false : cell.bold === true;
+  const status = typeof cell === "string" ? void 0 : cell.status;
+  const bold = status !== void 0 || typeof cell !== "string" && cell.bold === true;
+  const fill = status ? STATUS_TINT[status] : zebra ? kit.palette.ice : void 0;
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : void 0,
     borders,
-    shading: zebra ? { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" } : void 0,
+    shading: fill ? { type: ShadingType.CLEAR, fill, color: "auto" } : void 0,
     verticalAlign: VerticalAlign.CENTER,
     children: [new Paragraph({ style: "DocTableCell", children: [new TextRun(bold ? { text, bold: true } : text)] })]
   });
@@ -597,10 +615,97 @@ function photoGrid(kit, opts) {
   return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: noBorders, rows });
 }
 
+// src/docx/layout.ts
+import {
+  AlignmentType as AlignmentType3,
+  BorderStyle as BorderStyle3,
+  Header,
+  InternalHyperlink,
+  Paragraph as Paragraph2,
+  ShadingType as ShadingType2,
+  Table as Table2,
+  TableCell as TableCell2,
+  TableRow as TableRow2,
+  TabStopType,
+  TextRun as TextRun2,
+  VerticalAlign as VerticalAlign2,
+  WidthType as WidthType2
+} from "docx";
+var hairline2 = { style: BorderStyle3.SINGLE, size: 4, color: HAIRLINE };
+var borders2 = { top: hairline2, bottom: hairline2, left: hairline2, right: hairline2 };
+function kpiRow(kit, tiles) {
+  const widthPct = Math.floor(100 / Math.max(tiles.length, 1));
+  const muted = mutedInk(kit);
+  return new Table2({
+    width: { size: 100, type: WidthType2.PERCENTAGE },
+    rows: [
+      new TableRow2({
+        cantSplit: true,
+        children: tiles.map(
+          (t) => new TableCell2({
+            width: { size: widthPct, type: WidthType2.PERCENTAGE },
+            borders: borders2,
+            shading: { type: ShadingType2.CLEAR, fill: kit.palette.ice, color: "auto" },
+            verticalAlign: VerticalAlign2.CENTER,
+            children: [
+              new Paragraph2({
+                alignment: AlignmentType3.CENTER,
+                spacing: { before: 120 },
+                children: [new TextRun2({ text: t.value, bold: true, size: 44, color: t.status ? STATUS_COLOR[t.status] : kit.palette.primary })]
+              }),
+              new Paragraph2({
+                alignment: AlignmentType3.CENTER,
+                children: [new TextRun2({ text: t.label.toUpperCase(), bold: true, size: 16, color: muted })]
+              }),
+              new Paragraph2({
+                alignment: AlignmentType3.CENTER,
+                spacing: { after: 120 },
+                children: [new TextRun2({ text: t.sub ?? "", size: 16, color: muted })]
+              })
+            ]
+          })
+        )
+      })
+    ]
+  });
+}
+function toc(kit, entries, title = "Contents") {
+  return [
+    h1(title),
+    ...entries.map(
+      (e) => new Paragraph2({
+        style: "DocBody",
+        indent: e.indent ? { left: 360 } : void 0,
+        children: [
+          new InternalHyperlink({
+            anchor: e.anchor,
+            children: [new TextRun2({ text: e.label, color: kit.palette.primary, underline: {} })]
+          })
+        ]
+      })
+    )
+  ];
+}
+function pageHeader(kit, opts) {
+  const children = [new TextRun2(opts.left)];
+  if (opts.right) children.push(new TextRun2({ text: "	" + opts.right }));
+  return new Header({
+    children: [
+      new Paragraph2({
+        style: "DocFooter",
+        tabStops: [{ type: TabStopType.RIGHT, position: 9638 }],
+        border: { bottom: { style: BorderStyle3.SINGLE, size: 4, color: kit.palette.primary, space: 4 } },
+        children
+      })
+    ]
+  });
+}
+
 // src/docx/pack.ts
 import { Document, Packer } from "docx";
 function createDocument(kit, opts) {
   const kitFooter = footer(kit, { pageNumbers: opts.pageNumbers });
+  const kitHeader = opts.header ? pageHeader(kit, opts.header) : void 0;
   return new Document({
     creator: opts.creator ?? kit.tenant.displayName,
     title: opts.title,
@@ -609,7 +714,8 @@ function createDocument(kit, opts) {
     sections: opts.sections.map((s) => ({
       ...s,
       properties: s.properties ?? pageA4(),
-      footers: s.footers ?? { default: kitFooter }
+      footers: s.footers ?? { default: kitFooter },
+      headers: s.headers ?? (kitHeader ? { default: kitHeader } : void 0)
     }))
   });
 }
@@ -842,6 +948,8 @@ function allowedHex(kit) {
     "FFFFFF",
     HAIRLINE,
     ALERT_AMBER,
+    ...Object.values(STATUS_TINT),
+    ...Object.values(STATUS_COLOR),
     mutedInk(kit),
     "AUTO"
   ]);

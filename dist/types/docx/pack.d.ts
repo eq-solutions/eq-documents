@@ -5,6 +5,7 @@
  */
 import { Document, type ISectionOptions } from 'docx';
 import type { TenantBrandKit } from '@eq-solutions/contracts';
+import { type PageHeaderOptions } from './layout.js';
 export interface CreateDocumentOptions {
     /** Document sections. `properties` defaults to A4/2 cm and `footers.default` to the kit footer unless given. */
     sections: ISectionOptions[];
@@ -13,6 +14,8 @@ export interface CreateDocumentOptions {
     description?: string;
     /** Append page-number fields (`Page N of M`) to the default kit footer. Default false — see `FooterOptions`. Ignored on any section that provides its own `footers`. */
     pageNumbers?: boolean;
+    /** Running page header on every section that doesn't provide its own `headers`. Omit for none. */
+    header?: PageHeaderOptions;
 }
 /** New Document with the kit's named styles, A4 page setup and legal footer applied to every section that doesn't override them. */
 export declare function createDocument(kit: TenantBrandKit, opts: CreateDocumentOptions): Document;
