@@ -87,3 +87,18 @@ test('dataTable: fixed layout with an explicit column grid that fills the conten
   assert.ok(Math.abs(cols.reduce((a, b) => a + b, 0) - 9638) <= 3, 'grid sums to A4 content width')
   assert.ok(cols[0] > cols[1] * 1.9, 'first column is ~2x the others')
 })
+
+test('dataTable: progress cell renders a proportional bar plus the label, preflight-clean', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    sections: [{ children: [docx.dataTable(acmeKit, { head: ['Task', 'Done'], rows: [['a', { text: '3/4', progress: { done: 3, total: 4 } }], ['b', { text: '0/4', progress: { done: 0, total: 4 } }]] })] }],
+  })
+  const bytes = await docx.toUint8Array(doc)
+  const zip = await JSZip.loadAsync(bytes)
+  const xml = await zip.file('word/document.xml').async('string')
+  const nbsp = (xml.match(/ +/g) ?? []).map((m) => m.length)
+  assert.deepEqual(nbsp, [15, 5, 20], '3/4 -> 15 filled + 5 track; 0/4 -> 20 track')
+  assert.ok(xml.includes('3/4') && xml.includes('0/4'))
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(acmeKit, { ...facts, logoSources: [acmeKit.logos.light.url] })
+  assert.equal(result.ok, true, result.line)
+})
