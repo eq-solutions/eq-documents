@@ -102,3 +102,29 @@ test('dataTable: progress cell renders a proportional bar plus the label, prefli
   const result = preflight.preflight(acmeKit, { ...facts, logoSources: [acmeKit.logos.light.url] })
   assert.equal(result.ok, true, result.line)
 })
+
+const slabKit = { ...acmeKit, palette: { ...acmeKit.palette, primary: '203060', ice: 'C5C8D5' } }
+
+test('softFill: a too-dark ice is replaced by a light tint of the primary; a light ice is kept', () => {
+  assert.equal(docx.softFill(acmeKit), acmeKit.palette.ice)
+  const soft = docx.softFill(slabKit)
+  assert.notEqual(soft, 'C5C8D5')
+  assert.match(soft, /^[0-9A-F]{6}$/)
+  // 10% primary + 90% white
+  assert.equal(soft, ['20', '30', '60'].map((h) => Math.round(parseInt(h, 16) * 0.1 + 255 * 0.9).toString(16).padStart(2, '0')).join('').toUpperCase())
+})
+
+test('h3 uses DocH3 and a dark-ice kit renders soft zebra/label/kpi fills, preflight clean', async () => {
+  const doc = docx.createDocument(slabKit, {
+    sections: [{ children: [docx.h3('Protection Settings'), docx.kvTable(slabKit, [['a', 'b']]), docx.kpiRow(slabKit, [{ label: 'x', value: '1' }]), docx.dataTable(slabKit, { head: ['h'], rows: [['1'], ['2']] })] }],
+  })
+  const bytes = await docx.toUint8Array(doc)
+  const zip = await JSZip.loadAsync(bytes)
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.ok(xml.includes('w:val="DocH3"'))
+  assert.ok(!xml.includes('C5C8D5'), 'the grey slab ice is never painted')
+  assert.ok(xml.includes(`w:fill="${docx.softFill(slabKit)}"`))
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(slabKit, { ...facts, logoSources: [] })
+  assert.equal(result.ok, true, result.line)
+})
