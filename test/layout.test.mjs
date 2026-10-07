@@ -1,0 +1,76 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import JSZip from 'jszip'
+import { docx, preflight } from '../dist/documents.esm.js'
+import { acmeKit, neutralKit } from './fixtures.mjs'
+
+async function layoutDoc(kit) {
+  const doc = docx.createDocument(kit, {
+    title: 'Report',
+    pageNumbers: true,
+    header: { left: 'Maintenance Check Report', right: 'Site X' },
+    sections: [
+      {
+        children: [
+          docx.masthead(kit, { title: 'Report', subtitle: 'Site X' }),
+          ...docx.toc(kit, [
+            { label: 'Asset A', anchor: 'asset_a' },
+            { label: 'Asset B', anchor: 'asset_b', indent: true },
+          ]),
+          docx.kpiRow(kit, [
+            { label: 'Pass rate', value: '100%', sub: '4 / 4 tasks', status: 'pass' },
+            { label: 'Assets', value: '04' },
+            { label: 'Outstanding', value: '2', status: 'fail' },
+          ]),
+          docx.h1('Asset A', { bookmark: 'asset_a' }),
+          docx.h1('Asset B', { bookmark: 'asset_b', pageBreakBefore: true }),
+          docx.dataTable(kit, {
+            head: ['Item', 'Result'],
+            rows: [
+              ['Greasing', { text: 'Pass', status: 'pass' }],
+              ['Racking', { text: 'Fail', status: 'fail' }],
+              ['Comms', { text: 'N/A', status: 'warn' }],
+              ['Plain', 'x'],
+            ],
+          }),
+        ],
+      },
+    ],
+  })
+  return docx.toUint8Array(doc)
+}
+
+test('layout: bookmarks, internal links, page break, header and page numbers are emitted', async () => {
+  const zip = await JSZip.loadAsync(await layoutDoc(acmeKit))
+  const document = await zip.file('word/document.xml').async('string')
+  assert.ok(document.includes('w:bookmarkStart') && document.includes('w:name="asset_a"'), 'bookmark asset_a')
+  assert.ok(document.includes('w:anchor="asset_b"'), 'internal link to asset_b')
+  assert.equal((document.match(/w:pageBreakBefore/g) ?? []).length, 1, 'exactly one page break')
+  const header = await zip.file('word/header1.xml').async('string')
+  assert.ok(header.includes('Maintenance Check Report') && header.includes('Site X'))
+  const footer = await zip.file('word/footer1.xml').async('string')
+  assert.ok(footer.includes('PAGE') && footer.includes('NUMPAGES'))
+})
+
+test('layout: status cells are tinted; kpi figures use fixed result colours', async () => {
+  const zip = await JSZip.loadAsync(await layoutDoc(acmeKit))
+  const document = await zip.file('word/document.xml').async('string')
+  for (const fill of Object.values(docx.STATUS_TINT)) assert.ok(document.includes(`w:fill="${fill}"`), `tint ${fill}`)
+  assert.ok(document.includes('w:val="16A34A"'), 'kpi pass colour')
+  assert.ok(document.includes('w:val="DC2626"'), 'kpi fail colour')
+})
+
+test('layout: document with status colours, kpi tiles and header passes preflight', async () => {
+  for (const kit of [acmeKit, neutralKit]) {
+    const bytes = await layoutDoc(kit)
+    const facts = await preflight.extractFacts(bytes)
+    const result = preflight.preflight(kit, { ...facts, logoSources: kit.logos.light ? [kit.logos.light.url] : [] })
+    assert.equal(result.ok, true, result.line)
+  }
+})
+
+test('layout: no header option means no header part', async () => {
+  const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.body('x')] }] })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  assert.equal(zip.file('word/header1.xml'), null)
+})

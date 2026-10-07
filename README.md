@@ -18,6 +18,8 @@ consume this package on `main` today (see Consuming below).
 | `docx.docxStyles(kit)` | Named Word styles from the kit: `DocTitle DocSubtitle DocH1 DocH2 DocBody DocSmall DocTableHead DocTableCell DocFooter`. The styles gallery in Word shows them; one edit restyles the file. |
 | `docx.createDocument(kit, …)` | `docx` Document with those styles, A4/2 cm, and the kit's legal footer on every section. |
 | `docx.masthead / footer / h1 / h2 / body / small / kvTable / dataTable / logoRun` | The shared vocabulary eq-field's `docx-builder.js` and eq-service's `lib/reports/*` each hand-roll today. Logo height is always derived from the **stored** aspect ratio. |
+| `docx.kpiRow / toc / pageHeader` | Report layout blocks: headline stat tiles, a clickable contents list (link to `h1/h2(text, { bookmark })`), and a running page header (`createDocument({ header })`). `h1/h2` also take `{ pageBreakBefore }`. |
+| `dataTable` cell `{ text, status: 'pass' \| 'fail' \| 'warn' }` | Tinted, bold result cell. Fixed colours (`STATUS_TINT`), same exception class as `ALERT_AMBER`, allow-listed in preflight. |
 | `docx.toBlob / toBuffer / toUint8Array` | Browser and server serialisation. |
 | `xlsx.xlsxTheme / applyHeaderRow / applyBodyRows / xlsxMasthead` | exceljs styling from the kit (lifted from eq-shell's compliance register). ESM only. |
 | `template.fillDocx(bytes, bindings)` | Fill a tenant-authored letterhead `.docx` by content-control **tag** (body, headers, footers). No sentinel strings. Templates come from tenant storage, never an app repo. |

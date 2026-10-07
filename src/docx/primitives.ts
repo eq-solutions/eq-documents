@@ -9,6 +9,7 @@
 import {
   AlignmentType,
   BorderStyle,
+  Bookmark,
   Footer,
   ImageRun,
   PageNumber,
@@ -37,6 +38,16 @@ export const HAIRLINE = 'CCCCCC'
  * this colour in v3.5.576 before this kit existed. Same treatment as HAIRLINE.
  */
 export const ALERT_AMBER = 'D97706'
+
+/**
+ * Fixed pass / fail / warn colours, independent of tenant palette — same
+ * reasoning as ALERT_AMBER: a result must read the same for every tenant.
+ * TINT = light cell fill (the table's own ink text stays legible on it);
+ * COLOR = solid, for large figures (kpiRow values).
+ */
+export const STATUS_TINT = { pass: 'DCFCE7', fail: 'FEE2E2', warn: 'FEF3C7' } as const
+export const STATUS_COLOR = { pass: '16A34A', fail: 'DC2626', warn: ALERT_AMBER } as const
+export type StatusKind = keyof typeof STATUS_TINT
 
 const hairline: IBorderOptions = { style: BorderStyle.SINGLE, size: 4, color: HAIRLINE }
 const borders = { top: hairline, bottom: hairline, left: hairline, right: hairline }
@@ -182,11 +193,26 @@ export function footer(kit: TenantBrandKit, opts: FooterOptions = {}): Footer {
   })
 }
 
-export function h1(text: string): Paragraph {
-  return new Paragraph({ style: 'DocH1', children: [new TextRun(text)] })
+export interface HeadingOptions {
+  /** Start the heading on a new page (e.g. one section per asset). */
+  pageBreakBefore?: boolean
+  /** Bookmark name so `toc()` (or any internal link) can jump here. */
+  bookmark?: string
 }
-export function h2(text: string): Paragraph {
-  return new Paragraph({ style: 'DocH2', children: [new TextRun(text)] })
+
+function heading(style: 'DocH1' | 'DocH2', text: string, opts: HeadingOptions = {}): Paragraph {
+  const run = new TextRun(text)
+  return new Paragraph({
+    style,
+    pageBreakBefore: opts.pageBreakBefore,
+    children: opts.bookmark ? [new Bookmark({ id: opts.bookmark, children: [run] })] : [run],
+  })
+}
+export function h1(text: string, opts?: HeadingOptions): Paragraph {
+  return heading('DocH1', text, opts)
+}
+export function h2(text: string, opts?: HeadingOptions): Paragraph {
+  return heading('DocH2', text, opts)
 }
 export function body(text: string): Paragraph {
   return new Paragraph({ style: 'DocBody', children: [new TextRun(text)] })
@@ -227,22 +253,27 @@ function headCell(kit: TenantBrandKit, text: string, widthPct?: number): TableCe
 
 function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widthPct?: number): TableCell {
   const text = typeof cell === 'string' ? cell : cell.text
-  const bold = typeof cell === 'string' ? false : cell.bold === true
+  const status = typeof cell === 'string' ? undefined : cell.status
+  // A status cell is always bold: the tint alone must never carry the result (print, colour-blind readers).
+  const bold = status !== undefined || (typeof cell !== 'string' && cell.bold === true)
+  const fill = status ? STATUS_TINT[status] : zebra ? kit.palette.ice : undefined
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : undefined,
     borders,
-    shading: zebra ? { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' } : undefined,
+    shading: fill ? { type: ShadingType.CLEAR, fill, color: 'auto' } : undefined,
     verticalAlign: VerticalAlign.CENTER,
     children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun(bold ? { text, bold: true } : text)] })],
   })
 }
 
 /**
- * A body cell: plain text, or `{ text, bold }` to emphasise it (e.g. a failed audit
- * answer). Bold only — colour stays with the kit so a tenant's brand and the
- * preflight palette check are never bypassed by a per-cell colour.
+ * A body cell: plain text, `{ text, bold }` to emphasise it (e.g. a failed audit
+ * answer), or `{ text, status }` to tint a result cell pass / fail / warn. Colour
+ * never comes from the caller: `status` maps to the fixed STATUS_TINT set (the
+ * same exception class as ALERT_AMBER, allow-listed in preflight), so a tenant's
+ * brand and the palette check are never bypassed by an arbitrary per-cell colour.
  */
-export type DataTableCell = string | { text: string; bold?: boolean }
+export type DataTableCell = string | { text: string; bold?: boolean; status?: StatusKind }
 
 export interface DataTableOptions {
   head: string[]
