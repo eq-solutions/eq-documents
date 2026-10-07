@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import JSZip from 'jszip'
-import { docx, preflight } from '../dist/documents.esm.js'
+import { docx, preflight, brand } from '../dist/documents.esm.js'
 import { acmeKit, neutralKit } from './fixtures.mjs'
 
 async function layoutDoc(kit) {
@@ -151,4 +151,25 @@ test('dataTable: a long table is free to break in the middle', async () => {
   const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
   const xml = await zip.file('word/document.xml').async('string')
   assert.equal((xml.match(/<w:keepNext\/>/g) ?? []).length, 4, 'header + rows 0,1 + row 8 (second-to-last)')
+})
+
+const purpleKit = { ...acmeKit, palette: { ...acmeKit.palette, primary: '7C77B9', deep: '7C77B9', ice: 'C5C8D5', ink: '1A1A2E' } }
+
+test('tableHeadFill: a mid-tone brand colour is darkened until header text clears AA; readable fills are untouched', () => {
+  assert.equal(docx.tableHeadFill(acmeKit), acmeKit.palette.primary, 'acme primary already readable -> unchanged')
+  const fill = docx.tableHeadFill(purpleKit)
+  assert.notEqual(fill, '7C77B9')
+  const best = Math.max(brand.contrastRatio('FFFFFF', fill), brand.contrastRatio(purpleKit.palette.ink, fill))
+  assert.ok(best >= 4.5, `header text contrast ${best.toFixed(2)}`)
+  // hue kept: still a purple (blue channel highest, red above green)
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(fill.slice(i, i + 2), 16))
+  assert.ok(b > r && r > g)
+})
+
+test('a mid-tone-primary tenant passes the full brand preflight', async () => {
+  const doc = docx.createDocument(purpleKit, { sections: [{ children: [docx.dataTable(purpleKit, { head: ['A', 'B'], rows: [['1', '2']] }), docx.kpiRow(purpleKit, [{ label: 'x', value: '1' }])] }] })
+  const bytes = await docx.toUint8Array(doc)
+  const facts = await preflight.extractFacts(bytes)
+  const result = preflight.preflight(purpleKit, { ...facts, logoSources: [] })
+  assert.equal(result.ok, true, result.line)
 })
