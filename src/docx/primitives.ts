@@ -17,6 +17,7 @@ import {
   ShadingType,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
   VerticalAlign,
@@ -119,7 +120,8 @@ export interface MastheadOptions {
  * type allows string page-measure units that don't support arithmetic —
  * keep this in sync if pageA4()'s page size or margins ever change.
  */
-const A4_CONTENT_WIDTH_PX = (11906 - 2 * 1134) / 15
+const A4_CONTENT_WIDTH_TWIPS = 11906 - 2 * 1134
+const A4_CONTENT_WIDTH_PX = A4_CONTENT_WIDTH_TWIPS / 15
 
 /**
  * Available width of masthead()'s 32%-wide logo cell, in px, with a 10%
@@ -289,8 +291,15 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
   const n = opts.head.length
   const widths = opts.widths ?? opts.head.map(() => Math.floor(100 / n))
   const zebra = opts.zebra ?? true
+  // Fixed layout + explicit grid: with only per-cell percentage widths Word (and
+  // LibreOffice) autofit columns to their content, so a 4-column checklist
+  // rendered lopsided and a narrow table stopped short of the margin.
+  const widthTotal = widths.reduce((sum, w) => sum + w, 0) || 100 // callers' widths needn't sum to exactly 100
+  const columnWidths = widths.map((w) => Math.round((A4_CONTENT_WIDTH_TWIPS * w) / widthTotal))
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
       ...opts.rows.map(
