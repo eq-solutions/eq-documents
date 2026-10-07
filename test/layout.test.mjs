@@ -74,3 +74,16 @@ test('layout: no header option means no header part', async () => {
   const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
   assert.equal(zip.file('word/header1.xml'), null)
 })
+
+test('dataTable: fixed layout with an explicit column grid that fills the content width', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    sections: [{ children: [docx.dataTable(acmeKit, { head: ['A', 'B', 'C'], widths: [50, 25, 25], rows: [['x', 'y', 'z']] })] }],
+  })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.ok(xml.includes('w:tblLayout w:type="fixed"'), 'fixed layout')
+  const cols = [...xml.matchAll(/<w:gridCol w:w="(\d+)"/g)].map((m) => Number(m[1]))
+  assert.equal(cols.length, 3)
+  assert.ok(Math.abs(cols.reduce((a, b) => a + b, 0) - 9638) <= 3, 'grid sums to A4 content width')
+  assert.ok(cols[0] > cols[1] * 1.9, 'first column is ~2x the others')
+})

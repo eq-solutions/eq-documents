@@ -355,6 +355,7 @@ import {
   ShadingType,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
   VerticalAlign,
@@ -391,7 +392,8 @@ function imageType(mime) {
 function imageRun(opts) {
   return new ImageRun({ type: imageType(opts.mime), data: opts.bytes, transformation: { width: opts.widthPx, height: opts.heightPx } });
 }
-var A4_CONTENT_WIDTH_PX = (11906 - 2 * 1134) / 15;
+var A4_CONTENT_WIDTH_TWIPS = 11906 - 2 * 1134;
+var A4_CONTENT_WIDTH_PX = A4_CONTENT_WIDTH_TWIPS / 15;
 var MASTHEAD_LOGO_COLUMN_PX = A4_CONTENT_WIDTH_PX * 0.32 * 0.9;
 function masthead(kit, opts) {
   const left = [new Paragraph({ style: "DocTitle", children: [new TextRun(opts.title)] })];
@@ -498,8 +500,12 @@ function dataTable(kit, opts) {
   const n = opts.head.length;
   const widths = opts.widths ?? opts.head.map(() => Math.floor(100 / n));
   const zebra = opts.zebra ?? true;
+  const widthTotal = widths.reduce((sum, w) => sum + w, 0) || 100;
+  const columnWidths = widths.map((w) => Math.round(A4_CONTENT_WIDTH_TWIPS * w / widthTotal));
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
       ...opts.rows.map(
