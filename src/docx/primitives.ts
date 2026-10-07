@@ -253,11 +253,11 @@ function headCell(kit: TenantBrandKit, text: string, widthPct?: number): TableCe
     borders,
     shading: { type: ShadingType.CLEAR, fill, color: 'auto' },
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableHead', children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })],
+    children: [new Paragraph({ style: 'DocTableHead', keepNext: true, children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })],
   })
 }
 
-function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widthPct?: number): TableCell {
+function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widthPct?: number, keepNext = false): TableCell {
   const text = typeof cell === 'string' ? cell : cell.text
   const status = typeof cell === 'string' ? undefined : cell.status
   // A status cell is always bold: the tint alone must never carry the result (print, colour-blind readers).
@@ -272,7 +272,7 @@ function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widt
     borders,
     shading: fill ? { type: ShadingType.CLEAR, fill, color: 'auto' } : undefined,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableCell', children: runs })],
+    children: [new Paragraph({ style: 'DocTableCell', keepNext, children: runs })],
   })
 }
 
@@ -306,6 +306,11 @@ function progressBarRuns(kit: TenantBrandKit, p: { done: number; total: number }
  */
 export type DataTableCell = string | { text: string; bold?: boolean; status?: StatusKind; progress?: { done: number; total: number } }
 
+/** Body row `ri` of `n` keeps with the row after it: the first two, and the second-to-last. */
+function keepWithNext(ri: number, n: number): boolean {
+  return (ri < 2 && ri < n - 1) || (n >= 3 && ri === n - 2)
+}
+
 export interface DataTableOptions {
   head: string[]
   rows: DataTableCell[][]
@@ -331,9 +336,12 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
     columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
+      // Header + first two body rows stay with the row after them (a table starting at the foot of a
+      // page moves whole instead of stranding its header and one row); the second-to-last row too, so
+      // the last row is never alone on the next page.
       ...opts.rows.map(
         (r, ri) =>
-          new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci])) }),
+          new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], keepWithNext(ri, opts.rows.length))) }),
       ),
     ],
   })

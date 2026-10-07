@@ -502,10 +502,10 @@ function headCell(kit, text, widthPct) {
     borders,
     shading: { type: ShadingType.CLEAR, fill, color: "auto" },
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableHead", children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })]
+    children: [new Paragraph({ style: "DocTableHead", keepNext: true, children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })]
   });
 }
-function bodyCell(kit, cell, zebra, widthPct) {
+function bodyCell(kit, cell, zebra, widthPct, keepNext = false) {
   const text = typeof cell === "string" ? cell : cell.text;
   const status = typeof cell === "string" ? void 0 : cell.status;
   const bold = status !== void 0 || typeof cell !== "string" && cell.bold === true;
@@ -517,7 +517,7 @@ function bodyCell(kit, cell, zebra, widthPct) {
     borders,
     shading: fill ? { type: ShadingType.CLEAR, fill, color: "auto" } : void 0,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableCell", children: runs })]
+    children: [new Paragraph({ style: "DocTableCell", keepNext, children: runs })]
   });
 }
 var PROGRESS_SEGMENTS = 20;
@@ -529,6 +529,9 @@ function progressBarRuns(kit, p) {
   if (filled > 0) runs.push(seg(filled, tableHeadFill(kit)));
   if (filled < PROGRESS_SEGMENTS) runs.push(seg(PROGRESS_SEGMENTS - filled, HAIRLINE));
   return runs;
+}
+function keepWithNext(ri, n) {
+  return ri < 2 && ri < n - 1 || n >= 3 && ri === n - 2;
 }
 function dataTable(kit, opts) {
   const n = opts.head.length;
@@ -542,8 +545,11 @@ function dataTable(kit, opts) {
     columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
+      // Header + first two body rows stay with the row after them (a table starting at the foot of a
+      // page moves whole instead of stranding its header and one row); the second-to-last row too, so
+      // the last row is never alone on the next page.
       ...opts.rows.map(
-        (r, ri) => new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci])) })
+        (r, ri) => new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], keepWithNext(ri, opts.rows.length))) })
       )
     ]
   });

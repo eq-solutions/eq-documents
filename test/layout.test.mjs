@@ -128,3 +128,27 @@ test('h3 uses DocH3 and a dark-ice kit renders soft zebra/label/kpi fills, prefl
   const result = preflight.preflight(slabKit, { ...facts, logoSources: [] })
   assert.equal(result.ok, true, result.line)
 })
+
+test('dataTable: header, first two rows and second-to-last row keep with next (no stranded header or lone last row)', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    sections: [{ children: [docx.dataTable(acmeKit, { head: ['A'], rows: [['1'], ['2'], ['3'], ['4']] })] }],
+  })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.equal((xml.match(/<w:keepNext\/>/g) ?? []).length, 4, '4 rows: header + rows 0,1,2 (row 3 is the last)')
+})
+
+test('dataTable: a 1-row table has no body keepNext (nothing to keep it with)', async () => {
+  const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.dataTable(acmeKit, { head: ['A'], rows: [['1']] })] }] })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.equal((xml.match(/<w:keepNext\/>/g) ?? []).length, 1)
+})
+
+test('dataTable: a long table is free to break in the middle', async () => {
+  const rows = Array.from({ length: 10 }, (_, i) => [String(i)])
+  const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.dataTable(acmeKit, { head: ['A'], rows })] }] })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.equal((xml.match(/<w:keepNext\/>/g) ?? []).length, 4, 'header + rows 0,1 + row 8 (second-to-last)')
+})
