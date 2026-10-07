@@ -259,13 +259,36 @@ function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widt
   // A status cell is always bold: the tint alone must never carry the result (print, colour-blind readers).
   const bold = status !== undefined || (typeof cell !== 'string' && cell.bold === true)
   const fill = status ? STATUS_TINT[status] : zebra ? kit.palette.ice : undefined
+  const progress = typeof cell === 'string' ? undefined : cell.progress
+  const runs = progress
+    ? [...progressBarRuns(kit, progress), new TextRun({ text: `  ${text}`, bold: bold || undefined })]
+    : [new TextRun(bold ? { text, bold: true } : text)]
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : undefined,
     borders,
     shading: fill ? { type: ShadingType.CLEAR, fill, color: 'auto' } : undefined,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun(bold ? { text, bold: true } : text)] })],
+    children: [new Paragraph({ style: 'DocTableCell', children: runs })],
   })
+}
+
+/** Number of segments in a progress bar. */
+const PROGRESS_SEGMENTS = 20
+
+/**
+ * Progress bar as shaded runs of non-breaking spaces (no images, no nested
+ * tables): filled segments in the table-header fill, the rest in the neutral hairline grey (the track). Both are
+ * kit/neutral colours, so preflight needs no exception.
+ */
+function progressBarRuns(kit: TenantBrandKit, p: { done: number; total: number }): TextRun[] {
+  const ratio = p.total > 0 ? Math.min(Math.max(p.done / p.total, 0), 1) : 0
+  const filled = Math.round(ratio * PROGRESS_SEGMENTS)
+  const seg = (n: number, fill: string) =>
+    new TextRun({ text: ' '.repeat(n), shading: { type: ShadingType.CLEAR, fill, color: 'auto' } })
+  const runs: TextRun[] = []
+  if (filled > 0) runs.push(seg(filled, tableHeadFill(kit)))
+  if (filled < PROGRESS_SEGMENTS) runs.push(seg(PROGRESS_SEGMENTS - filled, HAIRLINE))
+  return runs
 }
 
 /**
@@ -274,8 +297,10 @@ function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widt
  * never comes from the caller: `status` maps to the fixed STATUS_TINT set (the
  * same exception class as ALERT_AMBER, allow-listed in preflight), so a tenant's
  * brand and the palette check are never bypassed by an arbitrary per-cell colour.
+ * `{ text, progress: { done, total } }` prefixes the text with a 20-segment bar
+ * (e.g. text '3/4' for a 3-of-4 completion cell).
  */
-export type DataTableCell = string | { text: string; bold?: boolean; status?: StatusKind }
+export type DataTableCell = string | { text: string; bold?: boolean; status?: StatusKind; progress?: { done: number; total: number } }
 
 export interface DataTableOptions {
   head: string[]

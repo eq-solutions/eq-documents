@@ -100,11 +100,17 @@ export declare function tableHeadFill(kit: TenantBrandKit): string;
  * never comes from the caller: `status` maps to the fixed STATUS_TINT set (the
  * same exception class as ALERT_AMBER, allow-listed in preflight), so a tenant's
  * brand and the palette check are never bypassed by an arbitrary per-cell colour.
+ * `{ text, progress: { done, total } }` prefixes the text with a 20-segment bar
+ * (e.g. text '3/4' for a 3-of-4 completion cell).
  */
 export type DataTableCell = string | {
     text: string;
     bold?: boolean;
     status?: StatusKind;
+    progress?: {
+        done: number;
+        total: number;
+    };
 };
 export interface DataTableOptions {
     head: string[];

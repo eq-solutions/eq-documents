@@ -488,13 +488,25 @@ function bodyCell(kit, cell, zebra, widthPct) {
   const status = typeof cell === "string" ? void 0 : cell.status;
   const bold = status !== void 0 || typeof cell !== "string" && cell.bold === true;
   const fill = status ? STATUS_TINT[status] : zebra ? kit.palette.ice : void 0;
+  const progress = typeof cell === "string" ? void 0 : cell.progress;
+  const runs = progress ? [...progressBarRuns(kit, progress), new TextRun({ text: `  ${text}`, bold: bold || void 0 })] : [new TextRun(bold ? { text, bold: true } : text)];
   return new TableCell({
     width: widthPct ? { size: widthPct, type: WidthType.PERCENTAGE } : void 0,
     borders,
     shading: fill ? { type: ShadingType.CLEAR, fill, color: "auto" } : void 0,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableCell", children: [new TextRun(bold ? { text, bold: true } : text)] })]
+    children: [new Paragraph({ style: "DocTableCell", children: runs })]
   });
+}
+var PROGRESS_SEGMENTS = 20;
+function progressBarRuns(kit, p) {
+  const ratio = p.total > 0 ? Math.min(Math.max(p.done / p.total, 0), 1) : 0;
+  const filled = Math.round(ratio * PROGRESS_SEGMENTS);
+  const seg = (n, fill) => new TextRun({ text: "\xA0".repeat(n), shading: { type: ShadingType.CLEAR, fill, color: "auto" } });
+  const runs = [];
+  if (filled > 0) runs.push(seg(filled, tableHeadFill(kit)));
+  if (filled < PROGRESS_SEGMENTS) runs.push(seg(PROGRESS_SEGMENTS - filled, HAIRLINE));
+  return runs;
 }
 function dataTable(kit, opts) {
   const n = opts.head.length;
