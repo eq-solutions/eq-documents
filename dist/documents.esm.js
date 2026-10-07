@@ -530,6 +530,9 @@ function progressBarRuns(kit, p) {
   if (filled < PROGRESS_SEGMENTS) runs.push(seg(PROGRESS_SEGMENTS - filled, HAIRLINE));
   return runs;
 }
+function keepWithNext(ri, n) {
+  return ri < 2 && ri < n - 1 || n >= 3 && ri === n - 2;
+}
 function dataTable(kit, opts) {
   const n = opts.head.length;
   const widths = opts.widths ?? opts.head.map(() => Math.floor(100 / n));
@@ -542,10 +545,11 @@ function dataTable(kit, opts) {
     columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
-      // Header row + first two body rows are kept with the row after them, so a table that
-      // starts at the foot of a page moves whole instead of stranding its header and one row.
+      // Header + first two body rows stay with the row after them (a table starting at the foot of a
+      // page moves whole instead of stranding its header and one row); the second-to-last row too, so
+      // the last row is never alone on the next page.
       ...opts.rows.map(
-        (r, ri) => new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], ri < 2 && ri < opts.rows.length - 1)) })
+        (r, ri) => new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], keepWithNext(ri, opts.rows.length))) })
       )
     ]
   });

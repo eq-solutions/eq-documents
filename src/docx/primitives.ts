@@ -306,6 +306,11 @@ function progressBarRuns(kit: TenantBrandKit, p: { done: number; total: number }
  */
 export type DataTableCell = string | { text: string; bold?: boolean; status?: StatusKind; progress?: { done: number; total: number } }
 
+/** Body row `ri` of `n` keeps with the row after it: the first two, and the second-to-last. */
+function keepWithNext(ri: number, n: number): boolean {
+  return (ri < 2 && ri < n - 1) || (n >= 3 && ri === n - 2)
+}
+
 export interface DataTableOptions {
   head: string[]
   rows: DataTableCell[][]
@@ -331,11 +336,12 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
     columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
-      // Header row + first two body rows are kept with the row after them, so a table that
-      // starts at the foot of a page moves whole instead of stranding its header and one row.
+      // Header + first two body rows stay with the row after them (a table starting at the foot of a
+      // page moves whole instead of stranding its header and one row); the second-to-last row too, so
+      // the last row is never alone on the next page.
       ...opts.rows.map(
         (r, ri) =>
-          new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], ri < 2 && ri < opts.rows.length - 1)) }),
+          new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], keepWithNext(ri, opts.rows.length))) }),
       ),
     ],
   })
