@@ -22,7 +22,7 @@ import {
 } from 'docx'
 import type { TenantBrandKit } from '@eq-solutions/contracts'
 import { HAIRLINE, STATUS_COLOR, h1, type StatusKind } from './primitives.js'
-import { mutedInk } from './styles.js'
+import { mutedInk, softFill } from './styles.js'
 
 const hairline: IBorderOptions = { style: BorderStyle.SINGLE, size: 4, color: HAIRLINE }
 const borders = { top: hairline, bottom: hairline, left: hairline, right: hairline }
@@ -52,7 +52,7 @@ export function kpiRow(kit: TenantBrandKit, tiles: KpiTile[]): Table {
             new TableCell({
               width: { size: widthPct, type: WidthType.PERCENTAGE },
               borders,
-              shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' },
+              shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: 'auto' },
               verticalAlign: VerticalAlign.CENTER,
               children: [
                 new Paragraph({

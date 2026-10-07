@@ -83,6 +83,7 @@ export interface HeadingOptions {
 }
 export declare function h1(text: string, opts?: HeadingOptions): Paragraph;
 export declare function h2(text: string, opts?: HeadingOptions): Paragraph;
+export declare function h3(text: string, opts?: HeadingOptions): Paragraph;
 export declare function body(text: string): Paragraph;
 export declare function small(text: string): Paragraph;
 export declare function spacer(): Paragraph;

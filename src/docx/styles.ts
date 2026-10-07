@@ -12,6 +12,7 @@
 import type { IStylesOptions } from 'docx'
 import { AlignmentType, BorderStyle } from 'docx'
 import { DOC_BODY_SAFE_FONTS } from '@eq-solutions/contracts'
+import { luminance } from '../brand/contrast.js'
 import type { TenantBrandKit } from '@eq-solutions/contracts'
 
 /**
@@ -44,6 +45,7 @@ export const DOC_STYLE_IDS = [
   'DocSubtitle',
   'DocH1',
   'DocH2',
+  'DocH3',
   'DocBody',
   'DocSmall',
   'DocTableHead',
@@ -63,6 +65,23 @@ export function mutedInk(kit: TenantBrandKit): string {
   const mix = (i: number) => Math.round(parseInt(ink.slice(i, i + 2), 16) * 0.6 + 255 * 0.4)
   return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase()
 }
+
+/**
+ * Light surface fill for zebra rows, label columns and stat tiles. Normally the
+ * kit's `ice`; but a tenant's `ice` can be a mid-tone (SKS's renders as a heavy
+ * grey-lavender slab), so when it is too dark to read as a soft surface it is
+ * replaced by the primary blended 90 % towards white — the same idea as
+ * `tableHeadFill`'s fallback, and still a pure function of the kit.
+ */
+export function softFill(kit: TenantBrandKit): string {
+  if (luminance(kit.palette.ice) >= SOFT_FILL_LUMINANCE_MIN) return kit.palette.ice
+  const p = kit.palette.primary
+  const mix = (i: number) => Math.round(parseInt(p.slice(i, i + 2), 16) * 0.1 + 255 * 0.9)
+  return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
+/** Below this relative luminance a palette `ice` reads as a grey slab, not a soft surface. */
+const SOFT_FILL_LUMINANCE_MIN = 0.7
 
 /** Build the `styles` option for `new Document({ styles })`. */
 export function docxStyles(kit: TenantBrandKit): IStylesOptions {
@@ -114,6 +133,15 @@ export function docxStyles(kit: TenantBrandKit): IStylesOptions {
         quickFormat: true,
         run: { font: heading, size: 24, bold: true, color: deep },
         paragraph: { spacing: { before: 240, after: 80 }, keepNext: true, outlineLevel: 1 },
+      },
+      {
+        id: 'DocH3',
+        name: 'Doc Heading 3',
+        basedOn: 'Normal',
+        next: 'DocBody',
+        quickFormat: true,
+        run: { font: heading, size: 22, bold: true, color: deep },
+        paragraph: { spacing: { before: 160, after: 60 }, keepNext: true, outlineLevel: 2 },
       },
       {
         id: 'DocBody',

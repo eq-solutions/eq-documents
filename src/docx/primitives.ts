@@ -27,6 +27,7 @@ import {
 } from 'docx'
 import type { LogoAsset, TenantBrandKit } from '@eq-solutions/contracts'
 import { luminance, textOn } from '../brand/contrast.js'
+import { softFill } from './styles.js'
 
 /** Neutral hairline used for table borders in both brand briefs. Not a brand colour. */
 export const HAIRLINE = 'CCCCCC'
@@ -202,7 +203,7 @@ export interface HeadingOptions {
   bookmark?: string
 }
 
-function heading(style: 'DocH1' | 'DocH2', text: string, opts: HeadingOptions = {}): Paragraph {
+function heading(style: 'DocH1' | 'DocH2' | 'DocH3', text: string, opts: HeadingOptions = {}): Paragraph {
   const run = new TextRun(text)
   return new Paragraph({
     style,
@@ -215,6 +216,9 @@ export function h1(text: string, opts?: HeadingOptions): Paragraph {
 }
 export function h2(text: string, opts?: HeadingOptions): Paragraph {
   return heading('DocH2', text, opts)
+}
+export function h3(text: string, opts?: HeadingOptions): Paragraph {
+  return heading('DocH3', text, opts)
 }
 export function body(text: string): Paragraph {
   return new Paragraph({ style: 'DocBody', children: [new TextRun(text)] })
@@ -258,7 +262,7 @@ function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widt
   const status = typeof cell === 'string' ? undefined : cell.status
   // A status cell is always bold: the tint alone must never carry the result (print, colour-blind readers).
   const bold = status !== undefined || (typeof cell !== 'string' && cell.bold === true)
-  const fill = status ? STATUS_TINT[status] : zebra ? kit.palette.ice : undefined
+  const fill = status ? STATUS_TINT[status] : zebra ? softFill(kit) : undefined
   const progress = typeof cell === 'string' ? undefined : cell.progress
   const runs = progress
     ? [...progressBarRuns(kit, progress), new TextRun({ text: `  ${text}`, bold: bold || undefined })]
@@ -379,7 +383,7 @@ export function kvTable(kit: TenantBrandKit, pairs: Array<[string, string]>, lab
             new TableCell({
               width: { size: labelWidthPct, type: WidthType.PERCENTAGE },
               borders,
-              shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' },
+              shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: 'auto' },
               children: [new Paragraph({ style: 'DocTableCell', children: [new TextRun({ text: k, bold: true })] })],
             }),
             new TableCell({
@@ -421,7 +425,7 @@ export function signatureCell(kit: TenantBrandKit, opts: SignatureCellOptions): 
   return new TableCell({
     width: opts.widthPct ? { size: opts.widthPct, type: WidthType.PERCENTAGE } : undefined,
     borders,
-    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' },
+    shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: 'auto' },
     verticalAlign: VerticalAlign.CENTER,
     children: [nameP, sigP],
   })
@@ -444,7 +448,7 @@ function blankIceCell(kit: TenantBrandKit, widthPct: number): TableCell {
   return new TableCell({
     width: { size: widthPct, type: WidthType.PERCENTAGE },
     borders,
-    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: 'auto' },
+    shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: 'auto' },
     children: [new Paragraph('')],
   })
 }

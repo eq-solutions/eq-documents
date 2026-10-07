@@ -207,6 +207,7 @@ __export(docx_exports, {
   footerText: () => footerText,
   h1: () => h1,
   h2: () => h2,
+  h3: () => h3,
   imageRun: () => imageRun,
   kpiRow: () => kpiRow,
   kvTable: () => kvTable,
@@ -219,6 +220,7 @@ __export(docx_exports, {
   signatureCell: () => signatureCell,
   signatureGrid: () => signatureGrid,
   small: () => small,
+  softFill: () => softFill,
   spacer: () => spacer,
   tableHeadFill: () => tableHeadFill,
   toBlob: () => toBlob,
@@ -240,6 +242,7 @@ var DOC_STYLE_IDS = [
   "DocSubtitle",
   "DocH1",
   "DocH2",
+  "DocH3",
   "DocBody",
   "DocSmall",
   "DocTableHead",
@@ -254,6 +257,13 @@ function mutedInk(kit) {
   const mix = (i) => Math.round(parseInt(ink.slice(i, i + 2), 16) * 0.6 + 255 * 0.4);
   return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, "0")).join("").toUpperCase();
 }
+function softFill(kit) {
+  if (luminance(kit.palette.ice) >= SOFT_FILL_LUMINANCE_MIN) return kit.palette.ice;
+  const p = kit.palette.primary;
+  const mix = (i) => Math.round(parseInt(p.slice(i, i + 2), 16) * 0.1 + 255 * 0.9);
+  return [0, 2, 4].map((i) => mix(i).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+var SOFT_FILL_LUMINANCE_MIN = 0.7;
 function docxStyles(kit) {
   const { primary, deep, ink } = kit.palette;
   const accent = accentOf(kit);
@@ -302,6 +312,15 @@ function docxStyles(kit) {
         quickFormat: true,
         run: { font: heading2, size: 24, bold: true, color: deep },
         paragraph: { spacing: { before: 240, after: 80 }, keepNext: true, outlineLevel: 1 }
+      },
+      {
+        id: "DocH3",
+        name: "Doc Heading 3",
+        basedOn: "Normal",
+        next: "DocBody",
+        quickFormat: true,
+        run: { font: heading2, size: 22, bold: true, color: deep },
+        paragraph: { spacing: { before: 160, after: 60 }, keepNext: true, outlineLevel: 2 }
       },
       {
         id: "DocBody",
@@ -458,6 +477,9 @@ function h1(text, opts) {
 function h2(text, opts) {
   return heading("DocH2", text, opts);
 }
+function h3(text, opts) {
+  return heading("DocH3", text, opts);
+}
 function body(text) {
   return new Paragraph({ style: "DocBody", children: [new TextRun(text)] });
 }
@@ -487,7 +509,7 @@ function bodyCell(kit, cell, zebra, widthPct) {
   const text = typeof cell === "string" ? cell : cell.text;
   const status = typeof cell === "string" ? void 0 : cell.status;
   const bold = status !== void 0 || typeof cell !== "string" && cell.bold === true;
-  const fill = status ? STATUS_TINT[status] : zebra ? kit.palette.ice : void 0;
+  const fill = status ? STATUS_TINT[status] : zebra ? softFill(kit) : void 0;
   const progress = typeof cell === "string" ? void 0 : cell.progress;
   const runs = progress ? [...progressBarRuns(kit, progress), new TextRun({ text: `  ${text}`, bold: bold || void 0 })] : [new TextRun(bold ? { text, bold: true } : text)];
   return new TableCell({
@@ -550,7 +572,7 @@ function kvTable(kit, pairs, labelWidthPct = 30) {
           new TableCell({
             width: { size: labelWidthPct, type: WidthType.PERCENTAGE },
             borders,
-            shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" },
+            shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: "auto" },
             children: [new Paragraph({ style: "DocTableCell", children: [new TextRun({ text: k, bold: true })] })]
           }),
           new TableCell({
@@ -578,7 +600,7 @@ function signatureCell(kit, opts) {
   return new TableCell({
     width: opts.widthPct ? { size: opts.widthPct, type: WidthType.PERCENTAGE } : void 0,
     borders,
-    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" },
+    shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: "auto" },
     verticalAlign: VerticalAlign.CENTER,
     children: [nameP, sigP]
   });
@@ -587,7 +609,7 @@ function blankIceCell(kit, widthPct) {
   return new TableCell({
     width: { size: widthPct, type: WidthType.PERCENTAGE },
     borders,
-    shading: { type: ShadingType.CLEAR, fill: kit.palette.ice, color: "auto" },
+    shading: { type: ShadingType.CLEAR, fill: softFill(kit), color: "auto" },
     children: [new Paragraph("")]
   });
 }
@@ -663,7 +685,7 @@ function kpiRow(kit, tiles) {
           (t) => new TableCell2({
             width: { size: widthPct, type: WidthType2.PERCENTAGE },
             borders: borders2,
-            shading: { type: ShadingType2.CLEAR, fill: kit.palette.ice, color: "auto" },
+            shading: { type: ShadingType2.CLEAR, fill: softFill(kit), color: "auto" },
             verticalAlign: VerticalAlign2.CENTER,
             children: [
               new Paragraph2({
@@ -962,6 +984,7 @@ function allowedHex(kit) {
     kit.palette.primary,
     kit.palette.deep,
     kit.palette.ice,
+    softFill(kit),
     kit.palette.ink,
     "FFFFFF",
     HAIRLINE,
