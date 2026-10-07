@@ -502,10 +502,10 @@ function headCell(kit, text, widthPct) {
     borders,
     shading: { type: ShadingType.CLEAR, fill, color: "auto" },
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableHead", children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })]
+    children: [new Paragraph({ style: "DocTableHead", keepNext: true, children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })]
   });
 }
-function bodyCell(kit, cell, zebra, widthPct) {
+function bodyCell(kit, cell, zebra, widthPct, keepNext = false) {
   const text = typeof cell === "string" ? cell : cell.text;
   const status = typeof cell === "string" ? void 0 : cell.status;
   const bold = status !== void 0 || typeof cell !== "string" && cell.bold === true;
@@ -517,7 +517,7 @@ function bodyCell(kit, cell, zebra, widthPct) {
     borders,
     shading: fill ? { type: ShadingType.CLEAR, fill, color: "auto" } : void 0,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: "DocTableCell", children: runs })]
+    children: [new Paragraph({ style: "DocTableCell", keepNext, children: runs })]
   });
 }
 var PROGRESS_SEGMENTS = 20;
@@ -542,8 +542,10 @@ function dataTable(kit, opts) {
     columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
+      // Header row + first two body rows are kept with the row after them, so a table that
+      // starts at the foot of a page moves whole instead of stranding its header and one row.
       ...opts.rows.map(
-        (r, ri) => new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci])) })
+        (r, ri) => new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], ri < 2 && ri < opts.rows.length - 1)) })
       )
     ]
   });

@@ -253,11 +253,11 @@ function headCell(kit: TenantBrandKit, text: string, widthPct?: number): TableCe
     borders,
     shading: { type: ShadingType.CLEAR, fill, color: 'auto' },
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableHead', children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })],
+    children: [new Paragraph({ style: 'DocTableHead', keepNext: true, children: [new TextRun({ text, color: textOn(fill, kit.palette.ink) })] })],
   })
 }
 
-function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widthPct?: number): TableCell {
+function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widthPct?: number, keepNext = false): TableCell {
   const text = typeof cell === 'string' ? cell : cell.text
   const status = typeof cell === 'string' ? undefined : cell.status
   // A status cell is always bold: the tint alone must never carry the result (print, colour-blind readers).
@@ -272,7 +272,7 @@ function bodyCell(kit: TenantBrandKit, cell: DataTableCell, zebra: boolean, widt
     borders,
     shading: fill ? { type: ShadingType.CLEAR, fill, color: 'auto' } : undefined,
     verticalAlign: VerticalAlign.CENTER,
-    children: [new Paragraph({ style: 'DocTableCell', children: runs })],
+    children: [new Paragraph({ style: 'DocTableCell', keepNext, children: runs })],
   })
 }
 
@@ -331,9 +331,11 @@ export function dataTable(kit: TenantBrandKit, opts: DataTableOptions): Table {
     columnWidths,
     rows: [
       new TableRow({ tableHeader: true, cantSplit: true, children: opts.head.map((h, i) => headCell(kit, h, widths[i])) }),
+      // Header row + first two body rows are kept with the row after them, so a table that
+      // starts at the foot of a page moves whole instead of stranding its header and one row.
       ...opts.rows.map(
         (r, ri) =>
-          new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci])) }),
+          new TableRow({ cantSplit: true, children: r.map((c, ci) => bodyCell(kit, c, zebra && ri % 2 === 1, widths[ci], ri < 2 && ri < opts.rows.length - 1)) }),
       ),
     ],
   })

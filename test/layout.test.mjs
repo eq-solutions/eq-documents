@@ -128,3 +128,19 @@ test('h3 uses DocH3 and a dark-ice kit renders soft zebra/label/kpi fills, prefl
   const result = preflight.preflight(slabKit, { ...facts, logoSources: [] })
   assert.equal(result.ok, true, result.line)
 })
+
+test('dataTable: header and first two body rows keep with next (no stranded header + one row)', async () => {
+  const doc = docx.createDocument(acmeKit, {
+    sections: [{ children: [docx.dataTable(acmeKit, { head: ['A'], rows: [['1'], ['2'], ['3'], ['4']] })] }],
+  })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.equal((xml.match(/<w:keepNext\/>/g) ?? []).length, 3, 'header + 2 body rows; rows 3-4 free to break')
+})
+
+test('dataTable: a 1-row table has no body keepNext (nothing to keep it with)', async () => {
+  const doc = docx.createDocument(acmeKit, { sections: [{ children: [docx.dataTable(acmeKit, { head: ['A'], rows: [['1']] })] }] })
+  const zip = await JSZip.loadAsync(await docx.toUint8Array(doc))
+  const xml = await zip.file('word/document.xml').async('string')
+  assert.equal((xml.match(/<w:keepNext\/>/g) ?? []).length, 1)
+})
